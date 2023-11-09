@@ -2,151 +2,7 @@
 #include "kettlingur.h"
 
 
-
-typedef union {
-	u8 _u8[16];
-	s8 _s8[16];
-	u16 _u16[8];
-	s16 _s16[8];
-	u32 _u32[4];
-	s32 _s32[4];
-	u64 _u64[2];
-	s64 _s64[2];
-	u128 _u128[1];
-	s128 _s128[1];
-	f32 _f32[4];
-} reg;
-
-
-typedef union {
-	u8 _u8[4];
-	s8 _s8[4];
-	u16 _u16[2];
-	s16 _s16[2];
-	u32 _u32[1];
-	s32 _s32[1];
-	f32 _f32[1];
-} reg32;
-
-
-typedef union {
-	u8 _u8[2];
-	s8 _s8[2];
-	u16 _u16[1];
-	s16 _s16[1];
-} reg16;
-
-union gpr{
-	reg raw[32];
-	struct {
-		reg zero, at, v0, v1, a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra;
-	};
-};
-union cop0 {
-	reg raw[32];
-	struct {
-		reg index,random,entrylo0, entrylo1,context,pagemask,wired,_inv7,count,entryhi,compare,status,cause,epc,prid,config,
-		inv17,inv18,inv19,inv20,inv21,inv22,badpaddr,debug,perf,inv26,inv27,taglo,taghi,errorepc,inv31;
-	};
-};
-struct cop1 {
-	reg32 fpr[32];
-	reg32 fcr[32];
-};
-
-struct {
-	struct {
-		reg32 pc;
-		union gpr gpr;
-		reg lo, hi, barrelshift;
-		u8* ram, *regs, *scratch, *bios;
-		union cop0 cop0;
-		struct cop1 cop1;
-	} ee;
-
-	struct {
-		reg32 pc;
-		union gpr gpr;
-		reg32 lo, hi;
-		union cop0 cop0;
-		u8  *ram, *scratch, *bios, *regs;
-	}iop;
-
-	struct{
-		reg vf[32];
-		reg acc;
-		f32 q,p;
-		u32 mac;
-		u32 clip;
-		u32 status;
-		u16 vi[16];
-		u8 *code, *data;
-	}vu0, vu1;
-
-
-	struct {
-		u8* regs;
-	}gs;
-
-} ps2;
-
-#define rd() ((opcode._u32[0] >> 11) & 0x1f)
-#define rs() ((opcode._u32[0] >> 21) & 0x1f)
-#define rt() ((opcode._u32[0] >> 16) & 0x1f)
-#define sa() ((opcode._u32[0] >> 6) & 0x1f)
-#define base() rs()
-
-#define gpr(dt, which, i) ps2.ee.gpr.raw[which()]._##dt[i]
-
-#define rs32s gpr(s32, rs, 0)
-#define rt32s gpr(s32, rt, 0)
-#define rd32s gpr(s32, rd, 0)
-#define rs32u gpr(s32, rs, 0)
-#define rt32u gpr(s32, rt, 0)
-#define rd32u gpr(s32, rd, 0)
-
-#define rs64s gpr(s64, rs, 0)
-#define rt64s gpr(s64, rt, 0)
-#define rd64s gpr(s64, rd, 0)
-#define rs64u gpr(s64, rs, 0)
-#define rt64u gpr(s64, rt, 0)
-#define rd64u gpr(s64, rd, 0)
-
-#define rsi(dt, i) ps2.ee.gpr.raw[rs()]._##dt[i]
-#define rti(dt, i) ps2.ee.gpr.raw[rt()]._##dt[i]
-#define rdi(dt, i) ps2.ee.gpr.raw[rd()]._##dt[i]
-
-#define base32s gpr(s32, base, 0)
-#define base32u gpr(u32, base, 0)
-#define base64s gpr(s64, base, 0)
-#define base64u gpr(u64, base, 0)
-
-
-#define loi(dt, i) ps2.ee.lo._##dt[i]
-#define hii(dt, i) ps2.ee.hi._##dt[i]
-
-#define lo32s loi(s32, 0)
-#define hi32s hii(s32, 0)
-#define lo32u loi(u32, 0)
-#define hi32u hii(u32, 0)
-#define lo64s loi(s64, 0)
-#define hi64s hii(s64, 0)
-#define lo64u loi(u64, 0)
-#define hi64u hii(u64, 0)
-
-
-#define pc32s ps2.ee.pc._s32[0]
-#define pc32u ps2.ee.pc._u32[0]
-
-
-#define ra32s ps2.ee.gpr.ra._s32[0]
-#define ra32u ps2.ee.gpr.ra._u32[0]
-#define ra64s ps2.ee.gpr.ra._s64[0]
-#define ra64u ps2.ee.gpr.ra._u64[0]
-
-#define simm16 (opcode._s16[0])
-#define uimm16 (opcode._u16[0])
-#define offset (((s32)(opcode._s16[0])) << 2)
+#include "shorthand.h"
 
 #define ex(func) case (__COUNTER__-baseval): func(opcode); break;
 #define null() case (__COUNTER__-baseval): invalid(); break;
@@ -165,14 +21,12 @@ void init(){
 	ps2.iop.scratch = aligned_alloc(4096, 4096); //TODO: how big is this?
 	ps2.iop.bios = ps2.ee.bios;
 	ps2.iop.regs = aligned_alloc(4096, IOP_REGS_SIZE);
-
-
 	ps2.gs.regs = aligned_alloc(4096, GS_REGS_SIZE);
 
 	//values from pcsx2
 	pc32u = 0xbfc00000;
 	ps2.ee.cop0.config._u32[0] = 0x440;
-	ps2.ee.cop0.status._u32[0] = 0x70400004; //0x10900000 <-- wrong; // COP0 enabled | BEV = 1 | TS = 1
+	ps2.ee.cop0.status._u32[0] = 0x70400004; // COP0 enabled | BEV = 1 | TS = 1
 	ps2.ee.cop0.prid._u32[0] = 0x00002e20; // PRevID = Revision ID, same as R5900
 	ps2.ee.cop1.fcr[0]._u32[0] = 0x00002e00; // fpu Revision..
 	ps2.ee.cop1.fcr[31]._u32[0] = 0x01000001; // fpu Status/Control
@@ -188,6 +42,22 @@ void fini(){
 	free(ps2.ee.scratch);
 	free(ps2.ee.ram);
 }
+
+void loadbios(char* path){
+	FILE *fp;
+	char* abspath = realpath(path,NULL);
+	fp = fopen(abspath, "r");
+	dieif(fp == nullptr, "could not open %s",abspath);
+	fseek(fp, 0L, SEEK_END);
+	size_t size = (size_t)ftell(fp);
+	fseek(fp, 0L, SEEK_SET);
+	assert(size == 1024*1024*4);
+	fread(ps2.ee.bios, size, 1, fp);
+	ps2.ee.pc._u32[0] =0xbfc00000;
+	free(abspath);
+	fclose(fp);
+}
+
 
 void loadelf(char* path){
 	FILE *fp;
@@ -1711,6 +1581,7 @@ void FPU_W(reg32 opcode) {
 
 int main(int argc, char** argv){
 	init();
-	loadelf("../elfs/ee/helloworld");
+	loadbios("../bios/ps2.bin");
+	//loadelf("../elfs/ee/helloworld");
 	fini();
 }

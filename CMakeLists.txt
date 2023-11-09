@@ -8,6 +8,8 @@ include_directories(.)
 add_executable(Kettlingur
         kettlingur.c
         kettlingur.h
-        thirdparty/elf.h)
+        thirdparty/elf.h
+        disasm.c
+        shorthand.h)
 
 target_compile_options(Kettlingur PUBLIC -fwrapv -g3  -fPIC -fPIE -static -static-pie)
