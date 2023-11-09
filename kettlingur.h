@@ -175,7 +175,7 @@ typedef __uint128_t u128;
 typedef __int128_t s128;
 typedef float f32;
 
-overload s8 satadd(s8 a, s8 b){
+static inline overload s8 satadd(s8 a, s8 b){
 	s16 ret = ((s16)a) + (s16)b;
 	if(ret > 0x7f){
 		return 0x7f;
@@ -185,7 +185,7 @@ overload s8 satadd(s8 a, s8 b){
 	return (s8)ret;
 }
 
-overload s16 satadd(s16 a, s16 b){
+static inline overload s16 satadd(s16 a, s16 b){
 	s32 ret = ((s32)a) + (s32)b;
 	if(ret > 0x7fff){
 		return 0x7fff;
@@ -195,7 +195,7 @@ overload s16 satadd(s16 a, s16 b){
 	return (s16)ret;
 }
 
-overload s32 satadd(s32 a, s32 b){
+static inline overload s32 satadd(s32 a, s32 b){
 	s64 ret = ((s64)a) + (s64)b;
 	if(ret > 0x7fffffff){
 		return 0x7fffffff;
@@ -206,7 +206,7 @@ overload s32 satadd(s32 a, s32 b){
 }
 
 
-overload s8 satsub(s8 a, s8 b){
+static inline overload s8 satsub(s8 a, s8 b){
 	s16 ret = ((s16)a) - (s16)b;
 	if(ret > 0x7f){
 		return 0x7f;
@@ -216,7 +216,7 @@ overload s8 satsub(s8 a, s8 b){
 	return (s8)ret;
 }
 
-overload s16 satsub(s16 a, s16 b){
+static inline overload s16 satsub(s16 a, s16 b){
 	s32 ret = ((s32)a) - (s32)b;
 	if(ret > 0x7fff){
 		return 0x7fff;
@@ -226,7 +226,7 @@ overload s16 satsub(s16 a, s16 b){
 	return (s16)ret;
 }
 
-overload s32 satsub(s32 a, s32 b){
+static inline overload s32 satsub(s32 a, s32 b){
 	s64 ret = ((s64)a) - (s64)b;
 	if(ret > 0x7fffffff){
 		return 0x7fffffff;
@@ -290,7 +290,7 @@ struct cop1 {
 	reg32 fcr[32];
 };
 
-struct {
+struct ps2{
 	struct {
 		reg32 pc;
 		union gpr gpr;
@@ -324,4 +324,8 @@ struct {
 		u8* regs;
 	}gs;
 
-} ps2;
+};
+
+//
+
+void disasm(reg32 opcode, reg32 pc, char* dest);

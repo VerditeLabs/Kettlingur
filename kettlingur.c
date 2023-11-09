@@ -1,11 +1,13 @@
-
 #include "kettlingur.h"
 
+struct ps2 ps2;
 
 #include "shorthand.h"
 
 #define ex(func) case (__COUNTER__-baseval): func(opcode); break;
 #define null() case (__COUNTER__-baseval): invalid(); break;
+
+
 
 void init(){
 	ps2.ee.ram = aligned_alloc(4096, EE_RAM_SIZE);
@@ -115,7 +117,7 @@ void* readwrite(u32 addr) {
 	} else if (addr >= GS_REGS_START && addr < GS_REGS_END) {
 		return 0;
 	} else if (addr >= BIOS_START && addr < BIOS_END) {
-		host = &ps2.ee.bios[addr - EE_REGS_START];
+		host = &ps2.ee.bios[addr - BIOS_START];
 	} else if (addr >= EE_SCRATCHPAD_START && addr < EE_SCRATCHPAD_END) {
 		host = &ps2.ee.scratch[addr - EE_REGS_START];
 	} else if (addr >= EE_IOP_RAM_START && addr < EE_IOP_RAM_END) {
@@ -1583,5 +1585,10 @@ int main(int argc, char** argv){
 	init();
 	loadbios("../bios/ps2.bin");
 	//loadelf("../elfs/ee/helloworld");
+	char dis[1024];
+	reg32 a,b;
+	a._u32[0] = memread32(0xbfc00000);
+	b._u32[0] = 0xbfc00000;
+	disasm(a,b, dis);
 	fini();
 }

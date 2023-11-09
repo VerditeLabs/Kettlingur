@@ -1,9 +1,5 @@
 #include "kettlingur.h"
 
-char out[4096];
-
-
-
 #define _rt ((opcode._u32[0] >> 16) & 0x1f)
 #define _rd ((opcode._u32[0] >> 11) & 0x1f)
 #define _rs ((opcode._u32[0] >> 21) & 0x1f)
@@ -16,8 +12,8 @@ char out[4096];
 #define _simm16  (opcode._s16[0])
 #define _uimm16  (opcode._u16[0])
 #define _funct decode_funct(opcode)
-#define _branch decode_branch(opcode, pc)
-#define _jump decode_jump(opcode, pc)
+#define _branch (((opcode._s32[0] & 0xffff)<<2) + pc._s32[0])
+#define _jump (((opcode._u32[0] & 0x03ffffff)<<2) | (pc._u32[0] & 0xf0000000))
 
 #define _rt_name reg_names[_rt]
 #define _rd_name reg_names[_rd]
@@ -216,7 +212,7 @@ static void dis_DSUB(reg32 opcode, reg32 pc, char *dest) { rd_rs_rt("dsub", opco
 
 static void dis_DSUBU(reg32 opcode, reg32 pc, char *dest) { rd_rs_rt("dsubu", opcode, pc, dest); }
 
-static void dis_j(reg32 opcode, reg32 pc, char *dest) { sprintf(dest, "j %08x", _jump); }
+static void dis_J(reg32 opcode, reg32 pc, char *dest) { sprintf(dest, "j %08x", _jump); }
 
 static void dis_JAL(reg32 opcode, reg32 pc, char *dest) { sprintf(dest, "jal %08x", _jump); }
 
@@ -289,7 +285,7 @@ static void dis_SDR(reg32 opcode, reg32 pc, char *dest) { rt_offset_base("sdr", 
 static void dis_SH(reg32 opcode, reg32 pc, char *dest) { rt_offset_base("sh", opcode, pc, dest); }
 
 static void dis_SLL(reg32 opcode, reg32 pc, char *dest) {
-	if (opcode == 0x00000000) {
+	if (opcode._u32[0] == 0x00000000) {
 		sprintf(dest, "nop");
 	} else {
 		rd_rt_sa("sll", opcode, pc, dest);
@@ -713,6 +709,17 @@ static void dis_SUBA_S(reg32 opcode, reg32 pc, char *dest) { sprintf(dest, "suba
 
 static void dis_SWC1(reg32 opcode, reg32 pc, char *dest) { ft_offset_base("swc1", opcode, pc, dest); }
 
+static void dis_LQC2(reg32 opcode, reg32 pc, char *dest) { ft_offset_base("lqc2", opcode, pc, dest); }
+static void dis_SQC2(reg32 opcode, reg32 pc, char *dest) { ft_offset_base("sqc2", opcode, pc, dest); }
+
+static void dis_PMFHL(reg32 opcode, reg32 pc, char *dest) {sprintf(dest, "pmfhl");}
+static void dis_PMTHL(reg32 opcode, reg32 pc, char *dest) {sprintf(dest, "pmthl");}
+static void dis_CVT_S(reg32 opcode, reg32 pc, char *dest) {sprintf(dest, "cvt.s");}
+static void dis_C_F_S(reg32 opcode, reg32 pc, char *dest) {sprintf(dest, "c.f.s");}
+
+
+static void invalid(reg32 opcode, reg32 pc, char *dest) { sprintf(dest, "invalid"); }
+
 static void dis_SPECIAL(reg32 opcode, reg32 pc, char *dest);
 static void dis_MMI(reg32 opcode, reg32 pc, char *dest);
 static void dis_MMI0(reg32 opcode, reg32 pc, char *dest);
@@ -721,26 +728,26 @@ static void dis_MMI2(reg32 opcode, reg32 pc, char *dest);
 static void dis_MMI3(reg32 opcode, reg32 pc, char *dest);
 static void dis_REGIMM(reg32 opcode, reg32 pc, char *dest);
 static void dis_COP0(reg32 opcode, reg32 pc, char *dest);
+static void dis_TLB(reg32 opcode, reg32 pc, char *dest);
 static void dis_BC0(reg32 opcode, reg32 pc, char *dest);
 static void dis_C0(reg32 opcode, reg32 pc, char *dest);
 static void dis_COP1(reg32 opcode, reg32 pc, char *dest);
 static void dis_BC1(reg32 opcode, reg32 pc, char *dest);
 static void dis_S(reg32 opcode, reg32 pc, char *dest);
 static void dis_W(reg32 opcode, reg32 pc, char *dest);
-static void dis_COP2(reg32 opcode, reg32 pc, char *dest);
+static void dis_COP2(reg32 opcode, reg32 pc, char *dest){}
 
 #undef su
 #undef ex
 #undef nullptr
 
 
-char* invalid() { /* Handle invalid opcode */ }
 
 #define ex(func) case (__COUNTER__-baseval): dis_##func(opcode, pc, dest); break;
-#define null() case (__COUNTER__-baseval): invalid(); break;
+#define null() case (__COUNTER__-baseval): invalid(opcode, pc, dest); break;
 
 
-char* disOPCODE(reg32 opcode, reg32 pc, char* dest) {
+void disasm(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] >> 26) {
@@ -811,7 +818,7 @@ char* disOPCODE(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disSPECIAL(reg32 opcode, reg32 pc, char* dest) {
+static void dis_SPECIAL(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
@@ -882,7 +889,7 @@ char* disSPECIAL(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disREGIMM(reg32 opcode, reg32 pc, char* dest) {
+static void dis_REGIMM(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0]  >> 16) & 0x1f) {
@@ -921,7 +928,7 @@ char* disREGIMM(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disMMI(reg32 opcode, reg32 pc, char* dest) {
+static void dis_MMI(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
@@ -993,7 +1000,7 @@ char* disMMI(reg32 opcode, reg32 pc, char* dest) {
 }
 
 
-char* disMMI0(reg32 opcode, reg32 pc, char* dest) {
+static void dis_MMI0(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >>6) & 0x1f) {
@@ -1032,7 +1039,7 @@ char* disMMI0(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disMMI1(reg32 opcode, reg32 pc, char* dest) {
+static void dis_MMI1(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >>6) & 0x1f) {
@@ -1072,7 +1079,7 @@ char* disMMI1(reg32 opcode, reg32 pc, char* dest) {
 }
 
 
-char* disMMI2(reg32 opcode, reg32 pc, char* dest) {
+static void dis_MMI2(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >>6) & 0x1f) {
@@ -1112,7 +1119,7 @@ char* disMMI2(reg32 opcode, reg32 pc, char* dest) {
 }
 
 
-char* disMMI3(reg32 opcode, reg32 pc, char* dest) {
+static void dis_MMI3(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >>6) & 0x1f) {
@@ -1151,7 +1158,7 @@ char* disMMI3(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disBC0(reg32 opcode, reg32 pc, char* dest) {
+static void dis_BC0(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 	switch ((opcode._u32[0] >> 16) & 0x1f) {
 		ex(BC0F)
@@ -1161,7 +1168,7 @@ char* disBC0(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disCOP0(reg32 opcode, reg32 pc, char* dest) {
+static void dis_COP0(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 21)&0x1f) {
@@ -1184,7 +1191,7 @@ char* disCOP0(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disTLB(reg32 opcode, reg32 pc, char* dest) {
+static void dis_TLB(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
@@ -1218,7 +1225,7 @@ char* disTLB(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disCOP1(reg32 opcode, reg32 pc, char* dest) {
+static void dis_COP1(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 21)&0x1f) {
@@ -1241,7 +1248,7 @@ char* disCOP1(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disBC1(reg32 opcode, reg32 pc, char* dest) {
+static void dis_BC1(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >>16)&0x1f) {
@@ -1256,7 +1263,7 @@ char* disBC1(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disFPU_S(reg32 opcode, reg32 pc, char* dest) {
+static void dis_FPU_S(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
@@ -1307,7 +1314,7 @@ char* disFPU_S(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-char* disFPU_W(reg32 opcode, reg32 pc, char* dest) {
+static void dis_FPU_W(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
