@@ -1,149 +1,6 @@
-#include <stdint.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <assert.h>
 
-typedef uint8_t u8;
-typedef int8_t s8;
-typedef uint16_t u16;
-typedef int16_t s16;
-typedef uint32_t u32;
-typedef int32_t s32;
-typedef uint64_t u64;
-typedef int64_t s64;
-typedef __uint128_t u128;
-typedef __int128_t s128;
-typedef float f32;
+#include "kettlingur.h"
 
-
-#define EE_RAM_START 0x0
-#define EE_RAM_SIZE (1024 * 1024 * 32)
-#define EE_RAM_END (EE_RAM_START + EE_RAM_SIZE)
-#define EE_RAM_MASK (EE_RAM_END - 1)
-
-#define EE_RAM_UNCACHED_START 0x20000000
-#define EE_RAM_UNCACHED_SIZE EE_RAM_SIZE
-#define EE_RAM_UNCACHED_END (EE_RAM_UNCACHED_START + EE_RAM_UNCACHED_SIZE)
-
-#define EE_RAM_ACCELERATED_START 0x30000000
-#define EE_RAM_ACCELERATED_SIZE EE_RAM_SIZE
-#define EE_RAM_ACCELERATED_END (EE_RAM_ACCELERATED_START + EE_RAM_ACCELERATED_SIZE)
-
-#define EE_REGS_START 0x10000000
-#define EE_REGS_SIZE 0x10000
-#define EE_REGS_END (EE_REGS_START + EE_REGS_SIZE)
-
-#define VU_REGS_START 0x11000000
-#define VU_REGS_SIZE 0x10000
-#define VU_REGS_END (VU_REGS_START + VU_REGS_SIZE)
-
-#define GS_REGS_START 0x12000000
-#define GS_REGS_SIZE 0x10000
-#define GS_REGS_END (GS_REGS_START + GS_REGS_SIZE)
-
-#define BIOS_START 0x1fc00000
-
-#ifdef PSX_EMULATOR
-#define BIOS_SIZE (1024 * 512)
-#else
-#define BIOS_SIZE (1024 * 1024 * 4)
-#endif
-#define BIOS_END (BIOS_START + BIOS_SIZE)
-
-#define EE_IOP_RAM_START 0x1c000000
-#define EE_IOP_RAM_SIZE (1024 * 1024 * 2)
-#define EE_IOP_RAM_END (EE_IOP_RAM_START + EE_IOP_RAM_SIZE)
-
-#define EE_SCRATCHPAD_START 0x70000000
-#define EE_SCRATCHPAD_SIZE (1024 * 16)
-#define EE_SCRATCHPAD_END (EE_SCRATCHPAD_START + EE_SCRATCHPAD_SIZE)
-
-#define IOP_IOP_RAM_START 0x00000000
-#define IOP_IOP_RAM_SIZE (1024 * 1024 * 2)
-#define IOP_IOP_RAM_END (IOP_IOP_RAM_START + IOP_IOP_RAM_SIZE)
-#define IOP_IOP_RAM_MASK (IOP_IOP_RAM_END - 1)
-
-#define IOP_SCRATCHPAD_START 0x1f800000
-#define IOP_SCRATCHPAD_SIZE (1024)
-#define IOP_SCRATCHPAD_END (IOP_SCRATCHPAD_START + IOP_SCRATCHPAD_SIZE)
-
-#define IOP_REGS_START (0x1f801000)
-#define IOP_REGS_END (0x1f810000)
-#define IOP_REGS_SIZE (IOP_REGS_END - IOP_REGS_START)
-
-#define IOP_IO_START (0xfffe0000)
-#define IOP_IO_SIZE (1024 * 4)
-#define IOP_IO_END (IOP_IO_START + IOP_IO_SIZE)
-
-#define IOP_EXPANSION_ONE_START (0x1f000000)
-#define IOP_EXPANSION_ONE_SIZE (1024 * 1024 * 8)
-#define IOP_EXPANSION_ONE_END (IOP_EXPANSION_ONE_START + IOP_EXPANSION_ONE_SIZE)
-
-#define PSX_JOY_START 0x1f801040
-#define PSX_JOY_END 0x1f801050
-
-#define SBUS_START 0x1000F200
-#define SBUS_END 0x1000F300
-
-#define SBUS_PS1_START 0x1000F300
-#define SBUS_PS1_END 0x1000F400
-
-#define PSX_CDROM_START 0x1f801800
-#define PSX_CDROM_END 0x1f801810
-
-#define DMAC_START 0x10008000
-#define DMAC_END 0x1000f000
-
-#define DMAC_ADDTL_START 0x1000f500
-#define DMAC_ADDTL_END 0x1000f600
-
-#define FIFO_START 0x10004000
-#define FIFO_END 0x10008000
-
-#define GIF_START 0x10003000
-#define GIF_END 0x10003800
-
-#define INTC_START 0x1000f000
-#define INTC_END 0x1000f100
-
-#define SIF_START 0x1000f200
-#define SIF_END 0x1000f300
-
-#define SIO_START 0x1000f100
-#define SIO_END 0x1000f200
-
-#define TIMER_START 0x10000000
-#define TIMER_END 0x10002000
-
-#define VIF_START 0x10003800
-#define VIF_END 0x10004000
-
-#define MCH_START 0x1000F400
-#define MCH_END 0x1000F500
-
-#define IPU_START 0x10002000
-#define IPU_END 0x10003000
-
-#define PSX_DMAC_START 0x1f801080
-#define PSX_DMAC_END 0x1f801100
-
-#define PSX_GPU_START 0x1f801810
-#define PSX_GPU_END 0x1f801820
-
-#define PSX_INTERRUPTS_START 0x1f801070
-#define PSX_INTERRUPTS_END 0x1f801080
-
-#define PSX_MDEC_START 0x1f801820
-#define PSX_MDEC_END 0x1f801830
-
-#define PSX_SIO_START 0x1f801050
-#define PSX_SIO_END 0x1f801060
-
-#define PSX_SPU_START 0x1f801c00
-#define PSX_SPU_END 0x1f802000
-
-#define PSX_TIMER_START 0x1f801100
-#define PSX_TIMER_END 0x1f801130
 
 
 typedef union {
@@ -188,7 +45,8 @@ union gpr{
 union cop0 {
 	reg raw[32];
 	struct {
-		reg zero, at, v0, v1, a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,s0,s1,s2,s3,s4,s5,s6,s7,t8,t9,k0,k1,gp,sp,fp,ra;
+		reg index,random,entrylo0, entrylo1,context,pagemask,wired,_inv7,count,entryhi,compare,status,cause,epc,prid,config,
+		inv17,inv18,inv19,inv20,inv21,inv22,badpaddr,debug,perf,inv26,inv27,taglo,taghi,errorepc,inv31;
 	};
 };
 struct cop1 {
@@ -201,7 +59,7 @@ struct {
 		reg32 pc;
 		union gpr gpr;
 		reg lo, hi, barrelshift;
-		u8* ram, *regs, *scratch, *bios, *gsregs;
+		u8* ram, *regs, *scratch, *bios;
 		union cop0 cop0;
 		struct cop1 cop1;
 	} ee;
@@ -227,7 +85,7 @@ struct {
 
 
 	struct {
-
+		u8* regs;
 	}gs;
 
 } ps2;
@@ -297,7 +155,6 @@ void init(){
 	ps2.ee.ram = aligned_alloc(4096, EE_RAM_SIZE);
 	ps2.ee.scratch = aligned_alloc(4096, EE_SCRATCHPAD_SIZE);
 	ps2.ee.bios = aligned_alloc(4096, BIOS_SIZE);
-	ps2.ee.gsregs = aligned_alloc(4096, GS_REGS_SIZE);
 
 	ps2.vu0.code = NULL;
 	ps2.vu0.data = NULL;
@@ -309,6 +166,9 @@ void init(){
 	ps2.iop.bios = ps2.ee.bios;
 	ps2.iop.regs = aligned_alloc(4096, IOP_REGS_SIZE);
 
+
+	ps2.gs.regs = aligned_alloc(4096, GS_REGS_SIZE);
+
 	//values from pcsx2
 	pc32u = 0xbfc00000;
 	ps2.ee.cop0.config._u32[0] = 0x440;
@@ -319,14 +179,44 @@ void init(){
 }
 
 void fini(){
+	free(ps2.gs.regs);
 	free(ps2.iop.regs);
 	//no free for ps2.iop.bios because it is also ps2.ee.bios
 	free(ps2.iop.scratch);
 	free(ps2.iop.ram);
-	free(ps2.ee.gsregs);
 	free(ps2.ee.bios);
 	free(ps2.ee.scratch);
 	free(ps2.ee.ram);
+}
+
+void loadelf(char* path){
+	FILE *fp;
+	fp = fopen(path, "r");
+	dieif(fp == nullptr, "could not open elf file");
+	fseek(fp, 0L, SEEK_END);
+	size_t size = (size_t)ftell(fp);
+	fseek(fp, 0L, SEEK_SET);
+	u8 *buffer = malloc(size);
+
+	fread(buffer, size, 1, fp);
+
+	Elf32_Ehdr *elf_header = (Elf32_Ehdr *)buffer;
+	Elf32_Phdr *phdr = (Elf32_Phdr *)((uint8_t *)buffer + elf_header->e_phoff);
+	printf("entry %x\n", elf_header->e_entry);
+	printf("num pheaders %x\n", elf_header->e_phnum);
+	printf("phoff %x\n", elf_header->e_phoff);
+	printf("prog offset %x\n", phdr->p_offset);
+	printf("paddr %x\n", phdr->p_paddr);
+	printf("vaddr %x\n", phdr->p_vaddr);
+	printf("filesz %x\n", phdr->p_filesz);
+	printf("memsz %x\n", phdr->p_memsz);
+
+	memset((u8*)ps2.ee.ram + phdr->p_vaddr, 0, phdr->p_memsz);
+	memcpy((u8*)ps2.ee.ram + phdr->p_vaddr, (uint8_t *)buffer + phdr->p_offset, phdr->p_filesz);
+
+	ps2.ee.pc._u32[0] = elf_header->e_entry;
+	free(buffer);
+	fclose(fp);
 }
 
 void* readwrite(u32 addr) {
@@ -834,10 +724,10 @@ void SDR(reg32 opcode);
 void SWR(reg32 opcode);
 void CACHE(reg32 opcode);
 void PADDW(reg32 opcode){
-	rdi(u32,0) = rsi(u32,0) + rti(u32,0);
-	rdi(u32,1) = rsi(u32,1) + rti(u32,1);
-	rdi(u32,2) = rsi(u32,2) + rti(u32,2);
-	rdi(u32,3) = rsi(u32,3) + rti(u32,3);
+	rdi(s32,0) = rsi(s32,0) + rti(s32,0);
+	rdi(s32,1) = rsi(s32,1) + rti(s32,1);
+	rdi(s32,2) = rsi(s32,2) + rti(s32,2);
+	rdi(s32,3) = rsi(s32,3) + rti(s32,3);
 }
 void PSUBW(reg32 opcode){
 	rdi(s32,0) = rsi(s32,0) + rti(s32,0);
@@ -845,28 +735,261 @@ void PSUBW(reg32 opcode){
 	rdi(s32,2) = rsi(s32,2) + rti(s32,2);
 	rdi(s32,3) = rsi(s32,3) + rti(s32,3);
 }
-void PCGTW(reg32 opcode);
-void PMAXW(reg32 opcode);
-void PADDH(reg32 opcode);
-void PSUBH(reg32 opcode);
-void PCGTH(reg32 opcode);
-void PMAXH(reg32 opcode);
-void PADDB(reg32 opcode);
-void PSUBB(reg32 opcode);
-void PCGTB(reg32 opcode);
-void PADDSW(reg32 opcode);
-void PSUBSW(reg32 opcode);
-void PEXTLW(reg32 opcode);
-void PPACW(reg32 opcode);
-void PADDSH(reg32 opcode);
-void PSUBSH(reg32 opcode);
+void PCGTW(reg32 opcode){
+	rdi(s32,0) = rsi(s32,0) > rti(s32,0) ? -1 : 0;
+	rdi(s32,1) = rsi(s32,1) > rti(s32,1) ? -1 : 0;
+	rdi(s32,2) = rsi(s32,2) > rti(s32,2) ? -1 : 0;
+	rdi(s32,3) = rsi(s32,3) > rti(s32,3) ? -1 : 0;
+}
+void PMAXW(reg32 opcode){
+	rdi(s32,0) = rsi(s32,0) > rti(s32,0) ? rsi(s32,0) : rti(s32,0);
+	rdi(s32,1) = rsi(s32,1) > rti(s32,1) ? rsi(s32,1) : rti(s32,1);
+	rdi(s32,2) = rsi(s32,2) > rti(s32,2) ? rsi(s32,2) : rti(s32,2);
+	rdi(s32,3) = rsi(s32,3) > rti(s32,3) ? rsi(s32,3) : rti(s32,3);
+}
+void PADDH(reg32 opcode){
+	rdi(s16,0) = rsi(s16,0) + rti(s16,0);
+	rdi(s16,1) = rsi(s16,1) + rti(s16,1);
+	rdi(s16,2) = rsi(s16,2) + rti(s16,2);
+	rdi(s16,3) = rsi(s16,3) + rti(s16,3);
+	rdi(s16,4) = rsi(s16,4) + rti(s16,4);
+	rdi(s16,5) = rsi(s16,5) + rti(s16,5);
+	rdi(s16,6) = rsi(s16,6) + rti(s16,6);
+	rdi(s16,7) = rsi(s16,7) + rti(s16,7);
+}
+void PSUBH(reg32 opcode){
+
+	rdi(s16,0) = rsi(s16,0) - rti(s16,0);
+	rdi(s16,1) = rsi(s16,1) - rti(s16,1);
+	rdi(s16,2) = rsi(s16,2) - rti(s16,2);
+	rdi(s16,3) = rsi(s16,3) - rti(s16,3);
+	rdi(s16,4) = rsi(s16,4) - rti(s16,4);
+	rdi(s16,5) = rsi(s16,5) - rti(s16,5);
+	rdi(s16,6) = rsi(s16,6) - rti(s16,6);
+	rdi(s16,7) = rsi(s16,7) - rti(s16,7);
+}
+void PCGTH(reg32 opcode){
+
+	rdi(s16,0) = rsi(s16,0) > rti(s16,0) ? -1 : 0;
+	rdi(s16,1) = rsi(s16,1) > rti(s16,1) ? -1 : 0;
+	rdi(s16,2) = rsi(s16,2) > rti(s16,2) ? -1 : 0;
+	rdi(s16,3) = rsi(s16,3) > rti(s16,3) ? -1 : 0;
+	rdi(s16,4) = rsi(s16,4) > rti(s16,4) ? -1 : 0;
+	rdi(s16,5) = rsi(s16,5) > rti(s16,5) ? -1 : 0;
+	rdi(s16,6) = rsi(s16,6) > rti(s16,6) ? -1 : 0;
+	rdi(s16,7) = rsi(s16,7) > rti(s16,7) ? -1 : 0;
+}
+void PMAXH(reg32 opcode){
+
+	rdi(s16,0) = rsi(s16,0) > rti(s16,0) ? rsi(s16,0) : rti(s16,0);
+	rdi(s16,1) = rsi(s16,1) > rti(s16,1) ? rsi(s16,1) : rti(s16,1);
+	rdi(s16,2) = rsi(s16,2) > rti(s16,2) ? rsi(s16,2) : rti(s16,2);
+	rdi(s16,3) = rsi(s16,3) > rti(s16,3) ? rsi(s16,3) : rti(s16,3);
+	rdi(s16,4) = rsi(s16,4) > rti(s16,4) ? rsi(s16,0) : rti(s16,4);
+	rdi(s16,5) = rsi(s16,5) > rti(s16,5) ? rsi(s16,1) : rti(s16,5);
+	rdi(s16,6) = rsi(s16,6) > rti(s16,6) ? rsi(s16,2) : rti(s16,6);
+	rdi(s16,7) = rsi(s16,7) > rti(s16,7) ? rsi(s16,3) : rti(s16,7);
+}
+void PADDB(reg32 opcode){
+
+	rdi(s8,0) = rsi(s8,0) + rti(s8,0);
+	rdi(s8,1) = rsi(s8,1) + rti(s8,1);
+	rdi(s8,2) = rsi(s8,2) + rti(s8,2);
+	rdi(s8,3) = rsi(s8,3) + rti(s8,3);
+	rdi(s8,4) = rsi(s8,4) + rti(s8,4);
+	rdi(s8,5) = rsi(s8,5) + rti(s8,5);
+	rdi(s8,6) = rsi(s8,6) + rti(s8,6);
+	rdi(s8,7) = rsi(s8,7) + rti(s8,7);
+	rdi(s8,8) = rsi(s8,8) + rti(s8,8);
+	rdi(s8,9) = rsi(s8,9) + rti(s8,9);
+	rdi(s8,10) = rsi(s8,10) + rti(s8,10);
+	rdi(s8,11) = rsi(s8,11) + rti(s8,11);
+	rdi(s8,12) = rsi(s8,12) + rti(s8,12);
+	rdi(s8,13) = rsi(s8,13) + rti(s8,13);
+	rdi(s8,14) = rsi(s8,14) + rti(s8,14);
+	rdi(s8,15) = rsi(s8,15) + rti(s8,15);
+}
+void PSUBB(reg32 opcode){
+
+	rdi(s8,0) = rsi(s8,0) - rti(s8,0);
+	rdi(s8,1) = rsi(s8,1) - rti(s8,1);
+	rdi(s8,2) = rsi(s8,2) - rti(s8,2);
+	rdi(s8,3) = rsi(s8,3) - rti(s8,3);
+	rdi(s8,4) = rsi(s8,4) - rti(s8,4);
+	rdi(s8,5) = rsi(s8,5) - rti(s8,5);
+	rdi(s8,6) = rsi(s8,6) - rti(s8,6);
+	rdi(s8,7) = rsi(s8,7) - rti(s8,7);
+	rdi(s8,8) = rsi(s8,8) - rti(s8,8);
+	rdi(s8,9) = rsi(s8,9) - rti(s8,9);
+	rdi(s8,10) = rsi(s8,10) - rti(s8,10);
+	rdi(s8,11) = rsi(s8,11) - rti(s8,11);
+	rdi(s8,12) = rsi(s8,12) - rti(s8,12);
+	rdi(s8,13) = rsi(s8,13) - rti(s8,13);
+	rdi(s8,14) = rsi(s8,14) - rti(s8,14);
+	rdi(s8,15) = rsi(s8,15) - rti(s8,15);
+}
+void PCGTB(reg32 opcode){
+
+	rdi(s8,0) = rsi(s8,0) > rti(s8,0) ? -1 : 0;
+	rdi(s8,1) = rsi(s8,1) > rti(s8,1) ? -1 : 0;
+	rdi(s8,2) = rsi(s8,2) > rti(s8,2) ? -1 : 0;
+	rdi(s8,3) = rsi(s8,3) > rti(s8,3) ? -1 : 0;
+	rdi(s8,4) = rsi(s8,4) > rti(s8,4) ? -1 : 0;
+	rdi(s8,5) = rsi(s8,5) > rti(s8,5) ? -1 : 0;
+	rdi(s8,6) = rsi(s8,6) > rti(s8,6) ? -1 : 0;
+	rdi(s8,7) = rsi(s8,7) > rti(s8,7) ? -1 : 0;
+	rdi(s8,8) = rsi(s8,8) > rti(s8,8) ? -1 : 0;
+	rdi(s8,9) = rsi(s8,9) > rti(s8,9) ? -1 : 0;
+	rdi(s8,10) = rsi(s8,10) > rti(s8,10) ? -1 : 0;
+	rdi(s8,11) = rsi(s8,11) > rti(s8,11) ? -1 : 0;
+	rdi(s8,12) = rsi(s8,12) > rti(s8,12) ? -1 : 0;
+	rdi(s8,13) = rsi(s8,13) > rti(s8,13) ? -1 : 0;
+	rdi(s8,14) = rsi(s8,14) > rti(s8,14) ? -1 : 0;
+	rdi(s8,15) = rsi(s8,15) > rti(s8,15) ? -1 : 0;
+}
+void PADDSW(reg32 opcode){
+
+	rdi(s32,0) = satadd(rsi(s32,0), rti(s32,0));
+	rdi(s32,1) = satadd(rsi(s32,1), rti(s32,1));
+	rdi(s32,2) = satadd(rsi(s32,2), rti(s32,2));
+	rdi(s32,3) = satadd(rsi(s32,3), rti(s32,3));
+}
+void PSUBSW(reg32 opcode){
+
+	rdi(s32,0) = satsub(rsi(s32,0), rti(s32,0));
+	rdi(s32,1) = satsub(rsi(s32,1), rti(s32,1));
+	rdi(s32,2) = satsub(rsi(s32,2), rti(s32,2));
+	rdi(s32,3) = satsub(rsi(s32,3), rti(s32,3));
+}
+void PEXTLW(reg32 opcode){
+	rdi(u32,0) = rti(u32,0);
+	rdi(u32,1) = rsi(u32,0);
+	rdi(u32,2) = rti(u32,1);
+	rdi(u32,3) = rsi(u32,1);
+}
+void PPACW(reg32 opcode){
+	rdi(s32,0) = rti(s32,0);
+	rdi(s32,1) = rti(s32,2);
+	rdi(s32,2) = rsi(s32,1);
+	rdi(s32,3) = rsi(s32,3);
+}
+void PADDSH(reg32 opcode){
+	rdi(s16,0) = satadd(rsi(s16,0), rti(s16,0));
+	rdi(s16,1) = satadd(rsi(s16,1), rti(s16,1));
+	rdi(s16,2) = satadd(rsi(s16,2), rti(s16,2));
+	rdi(s16,3) = satadd(rsi(s16,3), rti(s16,3));
+	rdi(s16,4) = satadd(rsi(s16,4), rti(s16,4));
+	rdi(s16,5) = satadd(rsi(s16,5), rti(s16,5));
+	rdi(s16,6) = satadd(rsi(s16,6), rti(s16,6));
+	rdi(s16,7) = satadd(rsi(s16,7), rti(s16,7));
+}
+void PSUBSH(reg32 opcode){
+	rdi(s16,0) = satsub(rsi(s16,0), rti(s16,0));
+	rdi(s16,1) = satsub(rsi(s16,1), rti(s16,1));
+	rdi(s16,2) = satsub(rsi(s16,2), rti(s16,2));
+	rdi(s16,3) = satsub(rsi(s16,3), rti(s16,3));
+	rdi(s16,4) = satsub(rsi(s16,4), rti(s16,4));
+	rdi(s16,5) = satsub(rsi(s16,5), rti(s16,5));
+	rdi(s16,6) = satsub(rsi(s16,6), rti(s16,6));
+	rdi(s16,7) = satsub(rsi(s16,7), rti(s16,7));
+}
 void PEXTLH(reg32 opcode);
 void PPACH(reg32 opcode);
-void PADDSB(reg32 opcode);
-void PSUBSB(reg32 opcode);
-void PEXTLB(reg32 opcode);
-void PPACB(reg32 opcode);
-void PEXT5(reg32 opcode);
+void PADDSB(reg32 opcode){
+
+	rdi(s8,0) = satadd(rsi(s8,0), rti(s8,0));
+	rdi(s8,1) = satadd(rsi(s8,1), rti(s8,1));
+	rdi(s8,2) = satadd(rsi(s8,2), rti(s8,2));
+	rdi(s8,3) = satadd(rsi(s8,3), rti(s8,3));
+	rdi(s8,4) = satadd(rsi(s8,4), rti(s8,4));
+	rdi(s8,5) = satadd(rsi(s8,5), rti(s8,5));
+	rdi(s8,6) = satadd(rsi(s8,6), rti(s8,6));
+	rdi(s8,7) = satadd(rsi(s8,7), rti(s8,7));
+	rdi(s8,8) = satadd(rsi(s8,9), rti(s8,8));
+	rdi(s8,9) = satadd(rsi(s8,0), rti(s8,9));
+	rdi(s8,10) = satadd(rsi(s8,10), rti(s8,10));
+	rdi(s8,11) = satadd(rsi(s8,11), rti(s8,11));
+	rdi(s8,12) = satadd(rsi(s8,12), rti(s8,12));
+	rdi(s8,13) = satadd(rsi(s8,13), rti(s8,13));
+	rdi(s8,14) = satadd(rsi(s8,14), rti(s8,14));
+	rdi(s8,15) = satadd(rsi(s8,15), rti(s8,15));
+}
+void PSUBSB(reg32 opcode){
+
+	rdi(s8,0) = satsub(rsi(s8,0), rti(s8,0));
+	rdi(s8,1) = satsub(rsi(s8,1), rti(s8,1));
+	rdi(s8,2) = satsub(rsi(s8,2), rti(s8,2));
+	rdi(s8,3) = satsub(rsi(s8,3), rti(s8,3));
+	rdi(s8,4) = satsub(rsi(s8,4), rti(s8,4));
+	rdi(s8,5) = satsub(rsi(s8,5), rti(s8,5));
+	rdi(s8,6) = satsub(rsi(s8,6), rti(s8,6));
+	rdi(s8,7) = satsub(rsi(s8,7), rti(s8,7));
+	rdi(s8,8) = satsub(rsi(s8,9), rti(s8,8));
+	rdi(s8,9) = satsub(rsi(s8,0), rti(s8,9));
+	rdi(s8,10) = satsub(rsi(s8,10), rti(s8,10));
+	rdi(s8,11) = satsub(rsi(s8,11), rti(s8,11));
+	rdi(s8,12) = satsub(rsi(s8,12), rti(s8,12));
+	rdi(s8,13) = satsub(rsi(s8,13), rti(s8,13));
+	rdi(s8,14) = satsub(rsi(s8,14), rti(s8,14));
+	rdi(s8,15) = satsub(rsi(s8,15), rti(s8,15));
+}
+void PEXTLB(reg32 opcode){
+	rdi(u8,0) = rti(u8,0);
+	rdi(u8,1) = rsi(u8,0);
+	rdi(u8,2) = rti(u8,1);
+	rdi(u8,3) = rsi(u8,1);
+	rdi(u8,4) = rti(u8,2);
+	rdi(u8,5) = rsi(u8,2);
+	rdi(u8,6) = rti(u8,3);
+	rdi(u8,7) = rsi(u8,3);
+	rdi(u8,8) = rti(u8,4);
+	rdi(u8,9) = rsi(u8,4);
+	rdi(u8,10) = rti(u8,5);
+	rdi(u8,11) = rsi(u8,5);
+	rdi(u8,12) = rti(u8,6);
+	rdi(u8,13) = rsi(u8,6);
+	rdi(u8,14) = rti(u8,7);
+	rdi(u8,15) = rsi(u8,7);
+}
+void PPACB(reg32 opcode){
+	rdi(u8,0) = rti(u8,0);
+	rdi(u8,1) = rti(u8,2);
+	rdi(u8,2) = rti(u8,4);
+	rdi(u8,3) = rti(u8,6);
+	rdi(u8,4) = rti(u8,8);
+	rdi(u8,5) = rti(u8,10);
+	rdi(u8,6) = rti(u8,12);
+	rdi(u8,7) = rti(u8,14);
+	rdi(u8,8) = rsi(u8,0);
+	rdi(u8,9) = rsi(u8,2);
+	rdi(u8,10) = rsi(u8,4);
+	rdi(u8,11) = rsi(u8,6);
+	rdi(u8,12) = rsi(u8,8);
+	rdi(u8,13) = rsi(u8,10);
+	rdi(u8,14) = rsi(u8,12);
+	rdi(u8,15) = rsi(u8,14);
+}
+void PEXT5(reg32 opcode){
+	rdi(u8,0) = (rti(u32,0) & 0x1f) << 3;
+	rdi(u8,1) = ((rti(u32,0)>>5) & 0x1f) << 3;
+	rdi(u8,2) = ((rti(u32,0)>>10) & 0x1f) << 3;
+	rdi(u8,3) = (rti(u32,0) & 0x8000) ? 0x80 : 0;
+
+	rdi(u8,4) = (rti(u32,1) & 0x1f) << 3;
+	rdi(u8,5) = ((rti(u32,1)>>5) & 0x1f) << 3;
+	rdi(u8,6) = ((rti(u32,1)>>10) & 0x1f) << 3;
+	rdi(u8,7) = (rti(u32,1) & 0x8000) ? 0x80 : 0;
+	rdi(u8,8) = (rti(u32,2) & 0x1f) << 3;
+	rdi(u8,9) = ((rti(u32,2)>>5) & 0x1f) << 3;
+	rdi(u8,10) = ((rti(u32,2)>>10) & 0x1f) << 3;
+	rdi(u8,11) = (rti(u32,2) & 0x8000) ? 0x80 : 0;
+	rdi(u8,12) = (rti(u32,3) & 0x1f) << 3;
+	rdi(u8,13) = ((rti(u32,3)>>5) & 0x1f) << 3;
+	rdi(u8,14) = ((rti(u32,3)>>10) & 0x1f) << 3;
+	rdi(u8,15) = (rti(u32,3) & 0x8000) ? 0x80 : 0;
+
+
+}
 void PPAC5(reg32 opcode);
 void PABSW(reg32 opcode);
 void PCEQW(reg32 opcode);
@@ -1583,5 +1706,6 @@ void FPU_W(reg32 opcode) {
 
 int main(int argc, char** argv){
 	init();
+
 	fini();
 }
