@@ -10,4 +10,4 @@ add_executable(Kettlingur
         kettlingur.h
         thirdparty/elf.h)
 
-target_compile_options(Kettlingur PUBLIC -fwrapv -g3 -Og -fPIC -fPIE -static -static-pie)
+target_compile_options(Kettlingur PUBLIC -fwrapv -g3  -fPIC -fPIE -static -static-pie)

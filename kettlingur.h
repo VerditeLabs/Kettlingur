@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include <thirdparty/elf.h>
 
@@ -13,7 +14,7 @@
 
 #define die(msg, ...)                                                                                                 \
   do {                                                                                                                 \
-    printf("encountered fatal error at %d in file %s\n", __LINE__, __FILE__);                                          \
+    printf("encountered fatal error at in file %s:%d\n", __FILE__,__LINE__);                                          \
     printf(msg, ##__VA_ARGS__);                                                                                        \
     exit(1);                                                                                                           \
   } while (0)

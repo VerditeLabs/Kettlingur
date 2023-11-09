@@ -191,8 +191,9 @@ void fini(){
 
 void loadelf(char* path){
 	FILE *fp;
-	fp = fopen(path, "r");
-	dieif(fp == nullptr, "could not open elf file");
+	char* abspath = realpath(path,NULL);
+	fp = fopen(abspath, "r");
+	dieif(fp == nullptr, "could not open %s",abspath);
 	fseek(fp, 0L, SEEK_END);
 	size_t size = (size_t)ftell(fp);
 	fseek(fp, 0L, SEEK_SET);
@@ -216,6 +217,7 @@ void loadelf(char* path){
 
 	ps2.ee.pc._u32[0] = elf_header->e_entry;
 	free(buffer);
+	free(abspath);
 	fclose(fp);
 }
 
@@ -251,6 +253,8 @@ void* readwrite(u32 addr) {
 	}
 	return host;
 }
+
+void exception(){}
 
 u8 memread8(u32 addr){
 	return *(u8*)readwrite(addr);
@@ -297,6 +301,9 @@ void MMI0(reg32 opcode);
 void MMI1(reg32 opcode);
 void MMI2(reg32 opcode);
 void MMI3(reg32 opcode);
+void BC1(reg32 opcode);
+void TLB(reg32 opcode);
+void COP2(reg32 opcode){}
 
 void SLL(reg32 opcode){
 	rd64s = rt32s << sa();
@@ -327,9 +334,9 @@ void MOVN(reg32 opcode) {
 		rd64s = rs64s;
 	}
 }
-void SYSCALL(reg32 opcode);
-void BREAK(reg32 opcode);
-void SYNC(reg32 opcode);
+void SYSCALL(reg32 opcode){}
+void BREAK(reg32 opcode){}
+void SYNC(reg32 opcode){}
 void MFHI(reg32 opcode){
 	rd64s = hi64s;
 }
@@ -409,8 +416,8 @@ void XOR(reg32 opcode){
 void NOR(reg32 opcode){
 	rd64u = ~(rs64u | rt64u);
 }
-void MFSA(reg32 opcode);
-void MTSA(reg32 opcode);
+void MFSA(reg32 opcode){}
+void MTSA(reg32 opcode){}
 void SLT(reg32 opcode){
 	rd64s = rs64s < rt64s ? 1 : 0;
 }
@@ -443,12 +450,12 @@ void DSUBU(reg32 opcode){
 		rd64s = res;
 	}
 }
-void TGE(reg32 opcode);
-void TGEU(reg32 opcode);
-void TLT(reg32 opcode);
-void TLTU(reg32 opcode);
-void TEQ(reg32 opcode);
-void TNE(reg32 opcode);
+void TGE(reg32 opcode){}
+void TGEU(reg32 opcode){}
+void TLT(reg32 opcode){}
+void TLTU(reg32 opcode){}
+void TEQ(reg32 opcode){}
+void TNE(reg32 opcode){}
 void DSLL(reg32 opcode){
 	rd64u = rt64u << sa();
 }
@@ -491,12 +498,12 @@ void BGEZL(reg32 opcode){
 		pc32s += 4;
 	}
 }
-void TGEI(reg32 opcode);
-void TGEIU(reg32 opcode);
-void TLTI(reg32 opcode);
-void TLTIU(reg32 opcode);
-void TEQI(reg32 opcode);
-void TNEI(reg32 opcode);
+void TGEI(reg32 opcode){}
+void TGEIU(reg32 opcode){}
+void TLTI(reg32 opcode){}
+void TLTIU(reg32 opcode){}
+void TEQI(reg32 opcode){}
+void TNEI(reg32 opcode){}
 void BLTZAL(reg32 opcode){
 	ra64s = pc32s + 8;
 	if(rs64s < 0){
@@ -525,8 +532,8 @@ void BGEZALL(reg32 opcode){
 		pc32s += 4;
 	}
 }
-void MTSAB(reg32 opcode);
-void MTSAH(reg32 opcode);
+void MTSAB(reg32 opcode){}
+void MTSAH(reg32 opcode){}
 void MADD(reg32 opcode){
 	reg res;
 	res._s64[0] = ((s64)rs32s* (s64)rt32s) + (s64)((lo64u & 0xffffffffull) | (hi64u << 32));
@@ -541,50 +548,49 @@ void MADDU(reg32 opcode){
 	hi64s = res._s32[1];
 	rd64s = res._s32[0];
 }
-void PLZCW(reg32 opcode);
-void MULT1(reg32 opcode);
-void MULTU1(reg32 opcode);
-void DIV1(reg32 opcode);
-void DIVU1(reg32 opcode);
-void MFC0(reg32 opcode);
-void MTC0(reg32 opcode);
-void BC0F(reg32 opcode);
-void BC0T(reg32 opcode);
-void BC0FL(reg32 opcode);
-void BC0TL(reg32 opcode);
-void TLBR(reg32 opcode);
-void TLBWI(reg32 opcode);
-void TLBWR(reg32 opcode);
-void TLBP(reg32 opcode);
-void ERET(reg32 opcode);
-void EI(reg32 opcode);
-void DI(reg32 opcode);
-void MFC1(reg32 opcode);
-void DMFC1(reg32 opcode);
-void CFC1(reg32 opcode);
-void MTC1(reg32 opcode);
-void DMTC1(reg32 opcode);
-void CTC1(reg32 opcode);
-void BC1F(reg32 opcode);
-void BC1T(reg32 opcode);
-void BC1FL(reg32 opcode);
-void BC1TL(reg32 opcode);
-void MFC2(reg32 opcode);
-void CFC2(reg32 opcode);
-void MTC2(reg32 opcode);
-void CTC2(reg32 opcode);
-void BC1(reg32 opcode);
-void BC2(reg32 opcode);
-void LWC1(reg32 opcode);
-void LWC2(reg32 opcode);
-void PREF(reg32 opcode);
-void LQC2(reg32 opcode);
+void PLZCW(reg32 opcode){}
+void MULT1(reg32 opcode){}
+void MULTU1(reg32 opcode){}
+void DIV1(reg32 opcode){}
+void DIVU1(reg32 opcode){}
+void MFC0(reg32 opcode){}
+void MTC0(reg32 opcode){}
+void BC0F(reg32 opcode){}
+void BC0T(reg32 opcode){}
+void BC0FL(reg32 opcode){}
+void BC0TL(reg32 opcode){}
+void TLBR(reg32 opcode){}
+void TLBWI(reg32 opcode){}
+void TLBWR(reg32 opcode){}
+void TLBP(reg32 opcode){}
+void ERET(reg32 opcode){}
+void EI(reg32 opcode){}
+void DI(reg32 opcode){}
+void MFC1(reg32 opcode){}
+void DMFC1(reg32 opcode){}
+void CFC1(reg32 opcode){}
+void MTC1(reg32 opcode){}
+void DMTC1(reg32 opcode){}
+void CTC1(reg32 opcode){}
+void BC1F(reg32 opcode){}
+void BC1T(reg32 opcode){}
+void BC1FL(reg32 opcode){}
+void BC1TL(reg32 opcode){}
+void MFC2(reg32 opcode){}
+void CFC2(reg32 opcode){}
+void MTC2(reg32 opcode){}
+void CTC2(reg32 opcode){}
+void BC2(reg32 opcode){}
+void LWC1(reg32 opcode){}
+void LWC2(reg32 opcode){}
+void PREF(reg32 opcode){}
+void LQC2(reg32 opcode){}
 void LD(reg32 opcode){
 	rt64u = memread64(base32s + simm16);
 }
-void SWC1(reg32 opcode);
-void SWC2(reg32 opcode);
-void SQC2(reg32 opcode);
+void SWC1(reg32 opcode){}
+void SWC2(reg32 opcode){}
+void SQC2(reg32 opcode){}
 void SD(reg32 opcode){
 	memwrite64(base32s + simm16, rt64u);
 }
@@ -687,17 +693,17 @@ void DADDIU(reg32 opcode){
 		rt64s = res;
 	}
 }
-void LDL(reg32 opcode);
-void LDR(reg32 opcode);
-void LQ(reg32 opcode);
-void SQ(reg32 opcode);
+void LDL(reg32 opcode){}
+void LDR(reg32 opcode){}
+void LQ(reg32 opcode){}
+void SQ(reg32 opcode){}
 void LB(reg32 opcode){
 	rt64s = (s32)memread8(base32s + simm16);
 }
 void LH(reg32 opcode){
 	rt64s = (s32)memread16(base32s + simm16);
 }
-void LWL(reg32 opcode);
+void LWL(reg32 opcode){}
 void LW(reg32 opcode){
 	rt64s = (s32)memread32(base32s + simm16);
 }
@@ -707,22 +713,22 @@ void LBU(reg32 opcode){
 void LHU(reg32 opcode){
 	rt64u = memread16(base32s + simm16);
 }
-void LWR(reg32 opcode);
-void LWU(reg32 opcode);
+void LWR(reg32 opcode){}
+void LWU(reg32 opcode){}
 void SB(reg32 opcode){
 	memwrite8(base32s + simm16, (u8)rt32u);
 }
 void SH(reg32 opcode){
 	memwrite16(base32s + simm16, (u16)rt32u);
 }
-void SWL(reg32 opcode);
+void SWL(reg32 opcode){}
 void SW(reg32 opcode){
 	memwrite32(base32s + simm16, (u32)rt32u);
 }
-void SDL(reg32 opcode);
-void SDR(reg32 opcode);
-void SWR(reg32 opcode);
-void CACHE(reg32 opcode);
+void SDL(reg32 opcode){}
+void SDR(reg32 opcode){}
+void SWR(reg32 opcode){}
+void CACHE(reg32 opcode){}
 void PADDW(reg32 opcode){
 	rdi(s32,0) = rsi(s32,0) + rti(s32,0);
 	rdi(s32,1) = rsi(s32,1) + rti(s32,1);
@@ -893,8 +899,8 @@ void PSUBSH(reg32 opcode){
 	rdi(s16,6) = satsub(rsi(s16,6), rti(s16,6));
 	rdi(s16,7) = satsub(rsi(s16,7), rti(s16,7));
 }
-void PEXTLH(reg32 opcode);
-void PPACH(reg32 opcode);
+void PEXTLH(reg32 opcode){}
+void PPACH(reg32 opcode){}
 void PADDSB(reg32 opcode){
 
 	rdi(s8,0) = satadd(rsi(s8,0), rti(s8,0));
@@ -990,107 +996,106 @@ void PEXT5(reg32 opcode){
 
 
 }
-void PPAC5(reg32 opcode);
-void PABSW(reg32 opcode);
-void PCEQW(reg32 opcode);
-void PMINW(reg32 opcode);
-void PADSBH(reg32 opcode);
-void PABSH(reg32 opcode);
-void PCEQH(reg32 opcode);
-void PMINH(reg32 opcode);
-void PCEQB(reg32 opcode);
-void PADDUW(reg32 opcode);
-void PSUBUW(reg32 opcode);
-void PEXTUW(reg32 opcode);
-void PADDUH(reg32 opcode);
-void PSUBUH(reg32 opcode);
-void PEXTUH(reg32 opcode);
-void PADDUB(reg32 opcode);
-void PSUBUB(reg32 opcode);
-void PEXTUB(reg32 opcode);
-void QFSRV(reg32 opcode);
-void PMADDW(reg32 opcode);
-void PSLLVW(reg32 opcode);
-void PSRLVW(reg32 opcode);
-void PMSUBW(reg32 opcode);
-void PMFHI(reg32 opcode);
-void PMFLO(reg32 opcode);
-void PINTH(reg32 opcode);
-void PMULTW(reg32 opcode);
-void PDIVW(reg32 opcode);
-void PCPYLD(reg32 opcode);
-void PMADDH(reg32 opcode);
-void PHMADH(reg32 opcode);
+void PPAC5(reg32 opcode){}
+void PABSW(reg32 opcode){}
+void PCEQW(reg32 opcode){}
+void PMINW(reg32 opcode){}
+void PADSBH(reg32 opcode){}
+void PABSH(reg32 opcode){}
+void PCEQH(reg32 opcode){}
+void PMINH(reg32 opcode){}
+void PCEQB(reg32 opcode){}
+void PADDUW(reg32 opcode){}
+void PSUBUW(reg32 opcode){}
+void PEXTUW(reg32 opcode){}
+void PADDUH(reg32 opcode){}
+void PSUBUH(reg32 opcode){}
+void PEXTUH(reg32 opcode){}
+void PADDUB(reg32 opcode){}
+void PSUBUB(reg32 opcode){}
+void PEXTUB(reg32 opcode){}
+void QFSRV(reg32 opcode){}
+void PMADDW(reg32 opcode){}
+void PSLLVW(reg32 opcode){}
+void PSRLVW(reg32 opcode){}
+void PMSUBW(reg32 opcode){}
+void PMFHI(reg32 opcode){}
+void PMFLO(reg32 opcode){}
+void PINTH(reg32 opcode){}
+void PMULTW(reg32 opcode){}
+void PDIVW(reg32 opcode){}
+void PCPYLD(reg32 opcode){}
+void PMADDH(reg32 opcode){}
+void PHMADH(reg32 opcode){}
 void PAND(reg32 opcode){
 	rdi(u128,0) = rsi(u128,0) & rti(u128,0);
 }
 void PXOR(reg32 opcode){
 	rdi(u128,0) = rsi(u128,0) ^ rti(u128,0);
 }
-void PMSUBH(reg32 opcode);
-void PHMSBH(reg32 opcode);
-void PEXEH(reg32 opcode);
-void PREVH(reg32 opcode);
-void PMULTH(reg32 opcode);
-void PDIVBW(reg32 opcode);
-void PEXEW(reg32 opcode);
-void PROT3W(reg32 opcode);
-void PMADDUW(reg32 opcode);
-void PSRAVW(reg32 opcode);
-void PMTHI(reg32 opcode);
-void PMTLO(reg32 opcode);
-void PINTEH(reg32 opcode);
-void PMULTUW(reg32 opcode);
-void PDIVUW(reg32 opcode);
-void PCPYUD(reg32 opcode);
-void POR(reg32 opcode);
-void PNOR(reg32 opcode);
-void PEXCH(reg32 opcode);
-void PCPYH(reg32 opcode);
-void PEXCW(reg32 opcode);
-void PMFHL(reg32 opcode);
-void PMTHL(reg32 opcode);
-void PSLLH(reg32 opcode);
-void PSRLH(reg32 opcode);
-void PSRAH(reg32 opcode);
-void PSLLW(reg32 opcode);
-void PSRLW(reg32 opcode);
-void PSRAW(reg32 opcode);
-void SRLV(reg32 opcode);
-void SRAV(reg32 opcode);
-void MFHI1(reg32 opcode);
-void MTHI1(reg32 opcode);
-void MFLO1(reg32 opcode);
-void MTLO1(reg32 opcode);
-void MADD1(reg32 opcode);
-void MADDU1(reg32 opcode);
-void TLB(reg32 opcode);
-void ADD_S(reg32 opcode);
-void SUB_S(reg32 opcode);
-void MUL_S(reg32 opcode);
-void DIV_S(reg32 opcode);
-void SQRT_S(reg32 opcode);
-void ABS_S(reg32 opcode);
-void MOV_S(reg32 opcode);
-void NEG_S(reg32 opcode);
-void SUBA_S(reg32 opcode);
-void MULA_S(reg32 opcode);
-void MADD_S(reg32 opcode);
-void MSUB_S(reg32 opcode);
-void MADDA_S(reg32 opcode);
-void MSUBA_S(reg32 opcode);
-void CVT_W_S(reg32 opcode);
-void MAX_S(reg32 opcode);
-void MIN_S(reg32 opcode);
-void C_F_S(reg32 opcode);
-void C_EQ_S(reg32 opcode);
+void PMSUBH(reg32 opcode){}
+void PHMSBH(reg32 opcode){}
+void PEXEH(reg32 opcode){}
+void PREVH(reg32 opcode){}
+void PMULTH(reg32 opcode){}
+void PDIVBW(reg32 opcode){}
+void PEXEW(reg32 opcode){}
+void PROT3W(reg32 opcode){}
+void PMADDUW(reg32 opcode){}
+void PSRAVW(reg32 opcode){}
+void PMTHI(reg32 opcode){}
+void PMTLO(reg32 opcode){}
+void PINTEH(reg32 opcode){}
+void PMULTUW(reg32 opcode){}
+void PDIVUW(reg32 opcode){}
+void PCPYUD(reg32 opcode){}
+void POR(reg32 opcode){}
+void PNOR(reg32 opcode){}
+void PEXCH(reg32 opcode){}
+void PCPYH(reg32 opcode){}
+void PEXCW(reg32 opcode){}
+void PMFHL(reg32 opcode){}
+void PMTHL(reg32 opcode){}
+void PSLLH(reg32 opcode){}
+void PSRLH(reg32 opcode){}
+void PSRAH(reg32 opcode){}
+void PSLLW(reg32 opcode){}
+void PSRLW(reg32 opcode){}
+void PSRAW(reg32 opcode){}
+void SRLV(reg32 opcode){}
+void SRAV(reg32 opcode){}
+void MFHI1(reg32 opcode){}
+void MTHI1(reg32 opcode){}
+void MFLO1(reg32 opcode){}
+void MTLO1(reg32 opcode){}
+void MADD1(reg32 opcode){}
+void MADDU1(reg32 opcode){}
+void ADD_S(reg32 opcode){}
+void SUB_S(reg32 opcode){}
+void MUL_S(reg32 opcode){}
+void DIV_S(reg32 opcode){}
+void SQRT_S(reg32 opcode){}
+void ABS_S(reg32 opcode){}
+void MOV_S(reg32 opcode){}
+void NEG_S(reg32 opcode){}
+void SUBA_S(reg32 opcode){}
+void MULA_S(reg32 opcode){}
+void MADD_S(reg32 opcode){}
+void MSUB_S(reg32 opcode){}
+void MADDA_S(reg32 opcode){}
+void MSUBA_S(reg32 opcode){}
+void CVT_W_S(reg32 opcode){}
+void MAX_S(reg32 opcode){}
+void MIN_S(reg32 opcode){}
+void C_F_S(reg32 opcode){}
+void C_EQ_S(reg32 opcode){}
 
-void C_LT_S(reg32 opcode);
-void C_LE_S(reg32 opcode);
-void RSQRT_S(reg32 opcode);
-void CVT_S(reg32 opcode);
-void CVT_S_W(reg32 opcode);
-void ADDA_S(reg32 opcode);
+void C_LT_S(reg32 opcode){}
+void C_LE_S(reg32 opcode){}
+void RSQRT_S(reg32 opcode){}
+void CVT_S(reg32 opcode){}
+void CVT_S_W(reg32 opcode){}
+void ADDA_S(reg32 opcode){}
 
 
 
@@ -1706,6 +1711,6 @@ void FPU_W(reg32 opcode) {
 
 int main(int argc, char** argv){
 	init();
-
+	loadelf("../elfs/ee/helloworld");
 	fini();
 }
