@@ -1,0 +1,3 @@
+[submodule "thirdparty/ps2autotests"]
+	path = thirdparty/ps2autotests
+	url = https://github.com/unknownbrackets/ps2autotests.git

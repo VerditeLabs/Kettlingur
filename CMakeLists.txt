@@ -13,7 +13,9 @@ add_executable(Kettlingur
         shorthand.h
         ee.c
         iop.c
-        vu.c)
+        vu.c
+        vu.c
+        ee.h)
 
 target_compile_options(Kettlingur PUBLIC -fwrapv -g3 -Weverything -fPIC -fPIE -static -static-pie)
 target_compile_options(Kettlingur PUBLIC -Weverything -Wno-padded -Wno-vla -Wno-reserved-id-macro -Wno-documentation-unknown-command -Wno-poison-system-directories -Wno-format-nonliteral -Wno-unsafe-buffer-usage -Wno-gnu-folding-constant)

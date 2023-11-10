@@ -5,7 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
-
+#include <math.h>
+#include <stdbool.h>
 #include <thirdparty/elf.h>
 
 #define overload __attribute__((overloadable))
@@ -251,6 +252,7 @@ typedef union {
 	u128 _u128[1];
 	s128 _s128[1];
 	f32 _f32[4];
+	struct {f32 x,y,z,w;};
 } reg;
 
 
@@ -308,8 +310,8 @@ struct ps2{
 	struct{
 		reg vf[32];
 		u16 vi[16];
-		reg accx,accy,accz,accw;
-		f32 q,p;
+		reg acc;
+		f32 q,p,r,i;
 		u32 mac;
 		u32 clip;
 		u32 status;

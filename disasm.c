@@ -12,7 +12,7 @@
 #define _simm16  (opcode._s16[0])
 #define _uimm16  (opcode._u16[0])
 #define _funct decode_funct(opcode)
-#define _branch (((opcode._s32[0] & 0xffff)<<2) + pc._s32[0])
+#define _branch (((opcode._s32[0] & 0xffff)<<2) + pc._s32[0] + 4)
 #define _jump (((opcode._u32[0] & 0x03ffffff)<<2) | (pc._u32[0] & 0xf0000000))
 
 #define _rt_name reg_names[_rt]
@@ -718,7 +718,7 @@ static void dis_CVT_S(reg32 opcode, reg32 pc, char *dest) {sprintf(dest, "cvt.s"
 static void dis_C_F_S(reg32 opcode, reg32 pc, char *dest) {sprintf(dest, "c.f.s");}
 
 
-static void invalid(reg32 opcode, reg32 pc, char *dest) { sprintf(dest, "invalid"); }
+static void invalid(reg32 opcode, reg32 pc, char *dest) { sprintf(dest, "invalid");assert(false); }
 
 static void dis_SPECIAL(reg32 opcode, reg32 pc, char *dest);
 static void dis_MMI(reg32 opcode, reg32 pc, char *dest);
@@ -728,7 +728,6 @@ static void dis_MMI2(reg32 opcode, reg32 pc, char *dest);
 static void dis_MMI3(reg32 opcode, reg32 pc, char *dest);
 static void dis_REGIMM(reg32 opcode, reg32 pc, char *dest);
 static void dis_COP0(reg32 opcode, reg32 pc, char *dest);
-static void dis_TLB(reg32 opcode, reg32 pc, char *dest);
 static void dis_BC0(reg32 opcode, reg32 pc, char *dest);
 static void dis_C0(reg32 opcode, reg32 pc, char *dest);
 static void dis_COP1(reg32 opcode, reg32 pc, char *dest);
@@ -739,7 +738,7 @@ static void dis_COP2(reg32 opcode, reg32 pc, char *dest){}
 
 #undef su
 #undef ex
-#undef nullptr
+#undef null
 
 
 
@@ -1180,7 +1179,7 @@ static void dis_COP0(reg32 opcode, reg32 pc, char* dest) {
 		// 001
 		ex(BC0) null() null() null() null() null() null() null()
 		// 010
-		ex(TLB) null() null() null() null() null() null() null()
+		ex(C0) null() null() null() null() null() null() null()
 		// 011
 		null() null() null() null() null() null() null() null()
 		// 100
@@ -1194,37 +1193,67 @@ static void dis_COP0(reg32 opcode, reg32 pc, char* dest) {
 	}
 }
 
-static void dis_TLB(reg32 opcode, reg32 pc, char* dest) {
+static void dis_C0(reg32 opcode, reg32 pc, char* dest) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
-		ex(TLBR)
-		ex(TLBWI)
-		null()
-		null()
-		null()
-		null()
-		ex(TLBWR)
-		null()
-		null()
-		null()
-		null()
-		null()
-		null()
-		null()
-		null()
-		null()
-		null()
-		ex(ERET)
-		null()
-		null()
-		null()
-		null()
-		null()
-		null()
-		null()
-		ex(EI)
-		ex(DI)
+		null();
+		ex(TLBR);
+		ex(TLBWI);
+		null();
+		null();
+		null();
+		ex(TLBWR);
+		null();
+		ex(TLBP);
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		ex(ERET);
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		ex(EI);
+		ex(DI);
 	}
 }
 

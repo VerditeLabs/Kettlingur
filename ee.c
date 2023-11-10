@@ -1,13 +1,14 @@
 #include "kettlingur.h"
 #include "shorthand.h"
+#include "ee.h"
 
-static inline void branch(u32 addr){
+static void branch(u32 addr){
 	ps2.ee._in_branch_delay = true;
 	ps2.ee._pc_latch._u32[0] = addr;
 
 }
 
-static inline void *readwrite(u32 addr) {
+static void *readwrite(u32 addr) {
 	void *host = NULL;
 		if (addr >= 0x80000000 && addr < 0xa0000000) {
 			addr -= 0x80000000;
@@ -15,7 +16,7 @@ static inline void *readwrite(u32 addr) {
 			addr -= 0xa0000000;
 		} else if (addr >= 0xc0000000 && addr < 0xe0000000) {
 			addr -= 0xc0000000;
-		} else {
+		} else if (addr >= 0xe0000000){
 			assert(false);
 		}
 		if (addr >= EE_RAM_START && addr < EE_RAM_END) {
@@ -25,6 +26,7 @@ static inline void *readwrite(u32 addr) {
 		} else if (addr >= EE_RAM_ACCELERATED_START && addr < EE_RAM_ACCELERATED_END) {
 			host = &ps2.ee.ram[addr - EE_RAM_ACCELERATED_START];
 		} else if (addr >= EE_REGS_START && addr < EE_REGS_END) {
+			printf("%s\n",regtostr(addr));
 			host = &ps2.ee.regs[addr - EE_REGS_START];
 		} else if (addr >= VU_REGS_START && addr < VU_REGS_END) {
 			return 0;
@@ -33,7 +35,7 @@ static inline void *readwrite(u32 addr) {
 		} else if (addr >= BIOS_START && addr < BIOS_END) {
 			host = &ps2.ee.bios[addr - BIOS_START];
 		} else if (addr >= EE_SCRATCHPAD_START && addr < EE_SCRATCHPAD_END) {
-			host = &ps2.ee.scratch[addr - EE_REGS_START];
+			host = &ps2.ee.scratch[addr - EE_SCRATCHPAD_START];
 		} else if (addr >= EE_IOP_RAM_START && addr < EE_IOP_RAM_END) {
 			host = &ps2.iop.ram[addr - EE_IOP_RAM_START];
 		}
@@ -42,14 +44,14 @@ static inline void *readwrite(u32 addr) {
 		return host;
 	}
 
-static inline void exception() {}
+static void exception() {}
 
-static inline u8 memread8(u32 addr) {
+static u8 memread8(u32 addr) {
 	u8* a = readwrite(addr);
 	return *a ;
 }
 
-static inline u16 memread16(u32 addr) {
+static u16 memread16(u32 addr) {
 	u16* a = readwrite(addr);
 	return *a;
 }
@@ -59,165 +61,294 @@ u32 memread32(u32 addr) {
 	return *a;
 }
 
-static inline u64 memread64(u32 addr) {
+static u64 memread64(u32 addr) {
 	u64* a = readwrite(addr);
 	return *a;
 }
 
-static inline u128 memread128(u32 addr) {
+static u128 memread128(u32 addr) {
 	return *(u128 *) readwrite(addr);
 }
 
-static inline void memwrite8(u32 addr, u8 data) {
+static void memwrite8(u32 addr, u8 data) {
 	u8* a = readwrite(addr);
 	*a = data;
 }
 
-static inline void memwrite16(u32 addr, u16 data) {
+static void memwrite16(u32 addr, u16 data) {
 	u16* a = readwrite(addr);
 	*a = data;
 }
 
-static inline void memwrite32(u32 addr, u32 data) {
+static void memwrite32(u32 addr, u32 data) {
 	u32* a = readwrite(addr);
 	*a = data;
 }
 
-static inline void memwrite64(u32 addr, u64 data) {
+static void memwrite64(u32 addr, u64 data) {
 	u64* a = readwrite(addr);
 	*a = data;
 }
 
-static inline void memwrite128(u32 addr, u64 data) {
+static void memwrite128(u32 addr, u64 data) {
 	*(u128 *) readwrite(addr) = data;
 }
 
 
 
-static inline void OPCODE(reg32 opcode);
+static void OPCODE(reg32 opcode);
 
-static inline void SPECIAL(reg32 opcode);
+static void SPECIAL(reg32 opcode);
 
-static inline void REGIMM(reg32 opcode);
+static void REGIMM(reg32 opcode);
 
-static inline void COP0(reg32 opcode);
+static void COP0(reg32 opcode);
 
-static inline void COP1(reg32 opcode);
+static void COP1(reg32 opcode);
 
-static inline void COP2(reg32 opcode);
+static void COP2(reg32 opcode);
 
-static inline void MMI(reg32 opcode);
+static void MMI(reg32 opcode);
 
-static inline void MMI0(reg32 opcode);
+static void MMI0(reg32 opcode);
 
-static inline void MMI1(reg32 opcode);
+static void MMI1(reg32 opcode);
 
-static inline void MMI2(reg32 opcode);
+static void MMI2(reg32 opcode);
 
-static inline void MMI3(reg32 opcode);
+static void MMI3(reg32 opcode);
+static void C0(reg32 opcode);
+static void BC1(reg32 opcode);
 
-static inline void BC1(reg32 opcode);
 
-static inline void TLB(reg32 opcode);
+static void COP2(reg32 opcode) {}
 
-static inline void COP2(reg32 opcode) {}
-
-static inline void SLL(reg32 opcode) {
+static void SLL(reg32 opcode) {
 	rd64s = rt32s << sa();
 }
 
-static inline void SRL(reg32 opcode) {
+static void SRL(reg32 opcode) {
 	rd64s = (s32) (rt32u >> sa());
 }
 
-static inline void SRA(reg32 opcode) {
+static void SRA(reg32 opcode) {
 	rd64s = rt32s >> sa();
 }
 
-static inline void SLLV(reg32 opcode) {
+static void SLLV(reg32 opcode) {
 	rd64s = rt32s << (rt32s & 0x1f);
 }
 
-static inline void JR(reg32 opcode) {
+static void JR(reg32 opcode) {
 	branch(rs32s);
 }
 
-static inline void JALR(reg32 opcode) {
+static void JALR(reg32 opcode) {
 	rd64s = pc32s + 8;
 	branch(rs32s);
 }
 
-static inline void MOVZ(reg32 opcode) {
+static void MOVZ(reg32 opcode) {
 	if (rt64s == 0) {
 		rd64s = rs64s;
 	}
 }
 
-static inline void MOVN(reg32 opcode) {
+static void MOVN(reg32 opcode) {
 	if (rt64s != 0) {
 		rd64s = rs64s;
 	}
 }
 
-static inline void SYSCALL(reg32 opcode) {}
+static void SYSCALL(reg32 opcode) {
+	switch(ps2.ee.gpr.v1._s32[0]) {
+		case 0x01:  printf(" void ResetEE(int reset_flag)\n"); break;
+		case 0x02:  printf(" void SetGsCrt(bool interlaced, int display_mode, bool frame)\n"); break;
+		case 0x04:  printf(" void Exit(int status)\n"); break;
+		case 0x05:  printf(" void _ExceptionEpilogue/RFU005()\n"); break;
+		case 0x06:  printf(" void LoadExecPS2(const char* filename, int argc, char** argv)\n"); break;
+		case 0x07:  printf(" void ExecPS2(void* entry, void* gp, int argc, char** argv)\n"); break;
+		case 0x09:  printf(" rfu009()\n"); break;
+		case 0x0a:  printf(" AddSbusIntcHandler\n"); break;
+		case 0x0b:  printf(" RemoveSbusIntcHandler\n"); break;
+		case 0x0c:  printf(" Interrupt2Iop\n"); break;
+		case 0x0d:  printf(" SetVTLBRefillHandler\n"); break;
+		case 0x0e:  printf(" SetVCommonHandler\n"); break;
+		case 0x0f:  printf(" SetVInterruptHandler\n"); break;
+		case 0x10:  printf(" int AddIntcHandler(int int_cause, int (*handler)(int), int next, void* arg, int flag)\n"); break;
+		case 0x11:  printf(" int RemoveIntcHandler(int int_cause, int handler_id)\n"); break;
+		case 0x12:  printf(" int AddDmacHandler(int dma_cause, int (*handler)(int), int next, void* arg, int flag)\n"); break;
+		case 0x13:  printf(" int RemoveDmacHandler(int dma_cause, int handler_id)\n"); break;
+		case 0x14:  printf(" bool _EnableIntc(int cause_bit)\n"); break;
+		case 0x15:  printf(" bool _DisableIntc(int cause_bit)\n"); break;
+		case 0x16:  printf(" bool _EnableDmac(int cause_bit)\n"); break;
+		case 0x17:  printf(" bool _DisableDmac(int cause_bit)\n"); break;
+		case 0x18:  printf(" SetAlarm\n"); break;
+		case 0x19:  printf(" ReleaseAlarm\n"); break;
+		case -0x1a:  printf(" _iEnableIntc\n"); break;
+		case -0x1b:  printf(" _iDisableIntc\n"); break;
+		case -0x1c:  printf(" _iEnableDmac\n"); break;
+		case -0x1d:  printf(" _iDisableDmac\n"); break;
+		case -0x1e:  printf(" iSetAlarm\n"); break;
+		case -0x1f:  printf(" iReleaseAlarm\n"); break;
+		case 0x20:  printf(" int CreateThread(ThreadParam* t)\n"); break;
+		case 0x21:  printf(" void DeleteThread(int thread_id)\n"); break;
+		case 0x22:  printf(" void StartThread(int thread_id, void* arg)\n"); break;
+		case 0x23:  printf(" void ExitThread()\n"); break;
+		case 0x24:  printf(" void ExitDeleteThread()\n"); break;
+		case 0x25:  printf(" void TerminateThread(int thread_id)\n"); break;
+		case -0x26:  printf(" void iTerminateThread(int thread_id)\n"); break;
+		case 0x27:  printf(" DisableDispatchThread\n"); break;
+		case 0x28:  printf(" EnableDispatchThread\n"); break;
+		case 0x29:  printf(" int ChangeThreadPriority(int thread_id, int priority)\n"); break;
+		case -0x2A:  printf(" int iChangeThreadPriority(int thread_id, int priority)\n"); break;
+		case 0x2B:  printf(" void RotateThreadReadyQueue(int priority)\n"); break;
+		case -0x2C:  printf(" int _iRotateThreadReadyQueue(int priority)\n"); break;
+		case 0x2D:  printf(" void ReleaseWaitThread(int thread_id)\n"); break;
+		case -0x2E:  printf(" int iReleaseWaitThread(int thread_id)\n"); break;
+		case 0x2F:  printf(" int GetThreadId()\n"); break;
+		case 0x30:  printf(" int ReferThreadStatus(int thread_id, ThreadParam* status)\n"); break;
+		case -0x31:  printf(" int iReferThreadStatus(int thread_id, ThreadParam* status)\n"); break;
+		case 0x32:  printf(" void SleepThread()\n"); break;
+		case 0x33:  printf(" void WakeupThread(int thread_id)\n"); break;
+		case -0x34:  printf(" int iWakeupThread(int thread_id)\n"); break;
+		case 0x35:  printf(" int CancelWakeupThread(int thread_id)\n"); break;
+		case -0x36:  printf(" int iCancelWakeupThread(int thread_id)\n"); break;
+		case 0x37:  printf(" int SuspendThread(int thread_id)\n"); break;
+		case -0x38:  printf(" int iSuspendThread(int thread_id)\n"); break;
+		case 0x39:  printf(" void ResumeThread(int thread_id)\n"); break;
+		case -0x3A:  printf(" int iResumeThread(int thread_id)\n"); break;
+		case 0x3B:  printf(" void JoinThread()\n"); break;
+		case 0x3C:  printf(" void* InitMainThread/RFU060(uint32 gp, void* stack, int stack_size, char* args, int root)\n"); break;
+		case 0x3D:  printf(" void* InitHeap/RFU061(void* heap, int heap_size)\n"); break;
+		case 0x3E:  printf(" void* EndOfHeap()\n"); break;
+		case 0x40:  printf(" int CreateSema(SemaParam* s)\n"); break;
+		case 0x41:  printf(" int DeleteSema(int sema_id)\n"); break;
+		case 0x42:  printf(" int SignalSema(int sema_id)\n"); break;
+		case -0x43:  printf(" int iSignalSema(int sema_id)\n"); break;
+		case 0x44:  printf(" void WaitSema(int sema_id)\n"); break;
+		case 0x45:  printf(" int PollSema(int sema_id)\n"); break;
+		case -0x46:  printf(" int iPollSema(int sema_id)\n"); break;
+				case 0x47: printf("ReferSemaStatus\n"); break;
+		case -0x48: printf("iReferSemaStatus\n"); break;
+		case -0x49: printf("iDeleteSema\n"); break;
+		case 0x4a: printf("SetOsdConfigParam\n"); break;
+		case 0x4b: printf("GetOsdConfigParam\n"); break;
+		case 0x4c: printf("GetGsHParam\n"); break;
+		case 0x4d: printf("GetGsVParam\n"); break;
+		case 0x4e: printf("SetGsHParam\n"); break;
+		case 0x4f: printf("SetGsVParam\n"); break;
+		case 0x50: printf("CreateEventFlag\n"); break;
+		case 0x51: printf("DeleteEventFlag\n"); break;
+		case 0x52: printf("SetEventFlag\n"); break;
+		case 0x53: printf("iSetEventFlag\n"); break;
+		case 0x5c: printf("EnableIntcHandler\n"); break;
+		case -0x5c: printf("iEnableIntcHandler\n"); break;
+		case 0x5d: printf("DisableIntcHandler\n"); break;
+		case -0x5d: printf("iDisableIntcHandler\n"); break;
+		case 0x5e: printf("EnableDmacHandler\n"); break;
+		case -0x5e: printf("iEnableDmacHandler\n"); break;
+		case 0x5f: printf("DisableDmacHandler\n"); break;
+		case -0x5f: printf("iDisableDmacHandler\n"); break;
+		case 0x60: printf("KSeg0\n"); break;
+		case 0x61: printf("EnableCache\n"); break;
+		case 0x62: printf("DisableCache\n"); break;
+		case 0x63: printf("GetCop0\n"); break;
+		case 0x64: printf("FlushCache\n"); break;
+		case 0x66: printf("CpuConfig\n"); break;
+		case -0x67: printf("iGetCop0\n"); break;
+		case -0x68: printf("iFlushCache\n"); break;
+		case 0x69: printf("RFU105\n"); break;
+		case -0x6a: printf("iCpuConfig\n"); break;
+		case 0x6b: printf("SifStopDma\n"); break;
+		case 0x6c: printf("SetCPUTimerHandler\n"); break;
+		case 0x6d: printf("SetCPUTimer\n"); break;
+		case 0x6e: printf("SetOsdConfigParam2\n"); break;
+		case 0x6f: printf("GetOsdConfigParam2\n"); break;
+		case 0x70: printf("GsGetIMR\n"); break;
+		case -0x70: printf("iGsGetIMR\n"); break;
+		case 0x71: printf("GsPutIMR\n"); break;
+		case -0x71: printf("iGsPutIMR\n"); break;
+		case 0x72: printf("SetPgifHandler\n"); break;
+		case 0x73: printf("SetVSyncFlag\n"); break;
+		case 0x74: printf("SetSyscall\n"); break;
+		case 0x76: printf("SifDmaStat\n"); break;
+		case -0x76: printf("iSifDmaStat\n"); break;
+		case 0x77: printf("SifSetDma\n"); break;
+		case -0x77: printf("iSifSetDma\n"); break;
+		case 0x78: printf("SifSetDChain\n"); break;
+		case -0x78: printf("iSifSetDChain\n"); break;
+		case 0x79: printf("SifSetReg\n"); break;
+		case 0x7a: printf("SifGetReg\n"); break;
+		case 0x7b: printf("ExecOSD\n"); break;
+		case 0x7c: printf("Deci2Call\n"); break;
+		case 0x7d: printf("PSMode\n"); break;
+		case 0x7e: printf("MachineType\n"); break;
+		case 0x7f: printf("GetMemorySize\n"); break;
+		default:
+			{printf("unknown syscall number %d\n", ps2.ee.gpr.v1._u32[0]); assert(false);}
+	}
 
-static inline void BREAK(reg32 opcode) {}
 
-static inline void SYNC(reg32 opcode) {}
+}
 
-static inline void MFHI(reg32 opcode) {
+static void BREAK(reg32 opcode) {}
+
+static void SYNC(reg32 opcode) {}
+
+static void MFHI(reg32 opcode) {
 	rd64s = hi64s;
 }
 
-static inline void MTHI(reg32 opcode) {
+static void MTHI(reg32 opcode) {
 	hi64s = rs64s;
 }
 
-static inline void MFLO(reg32 opcode) {
+static void MFLO(reg32 opcode) {
 	rd64s = lo64s;
 }
 
-static inline void MTLO(reg32 opcode) {
+static void MTLO(reg32 opcode) {
 	lo64s = rs64s;
 }
 
-static inline void DSLLV(reg32 opcode) {
+static void DSLLV(reg32 opcode) {
 	rd64u = rt64u << (rs64s & 0x3f);
 }
 
-static inline void DSRLV(reg32 opcode) {
+static void DSRLV(reg32 opcode) {
 	rd64u = rt64u >> (rs64s & 0x3f);
 }
 
-static inline void DSRAV(reg32 opcode) {
+static void DSRAV(reg32 opcode) {
 	rd64s = rt64s >> (rs64s & 0x3f);
 }
 
-static inline void MULT(reg32 opcode) {
+static void MULT(reg32 opcode) {
 	reg ret;
 	ret._s64[0] = (s64) rs32s * (s64) rt32s;
 	lo64s = ret._s32[0];
 	hi64s = ret._s32[1];
 }
 
-static inline void MULTU(reg32 opcode) {
+static void MULTU(reg32 opcode) {
 	reg ret;
 	ret._u64[0] = (u64) rs32u * (u64) rt32u;
 	lo64s = ret._s32[0];
 	hi64s = ret._s32[1];
 }
 
-static inline void DIV(reg32 opcode) {
+static void DIV(reg32 opcode) {
 	lo64s = (s64) rs32s / (s64) rt32s;
 	hi64s = (s64) rs32s % (s64) rt32s;
 }
 
-static inline void DIVU(reg32 opcode) {
+static void DIVU(reg32 opcode) {
 	lo64s = (s32) (((u64) rs32u) / ((u64) rt32u));
 	hi64s = (s32) (((u64) rs32u) % ((u64) rt32u));
 }
 
-static inline void ADD(reg32 opcode) {
+static void ADD(reg32 opcode) {
 	s32 res;
 	if (__builtin_add_overflow(rs32s, rt32s, &res)) {
 		exception();
@@ -226,14 +357,14 @@ static inline void ADD(reg32 opcode) {
 	rd64s = res;
 }
 
-static inline void ADDU(reg32 opcode) {
+static void ADDU(reg32 opcode) {
 	s32 res;
 	if (!__builtin_add_overflow(rs32s, rt32s, &res)) {
 		rd64s = res;
 	}
 }
 
-static inline void SUB(reg32 opcode) {
+static void SUB(reg32 opcode) {
 	s32 res;
 	if (__builtin_sub_overflow(rs32s, rt32s, &res)) {
 		exception();
@@ -242,46 +373,46 @@ static inline void SUB(reg32 opcode) {
 	rd64s = res;
 }
 
-static inline void SUBU(reg32 opcode) {
+static void SUBU(reg32 opcode) {
 	s32 res;
 	if (!__builtin_sub_overflow(rs32s, rt32s, &res)) {
 		rd64s = res;
 	}
 }
 
-static inline void AND(reg32 opcode) {
+static void AND(reg32 opcode) {
 	rd64u = rs64u & rt64u;
 }
 
-static inline void OR(reg32 opcode) {
+static void OR(reg32 opcode) {
 	rd64u = rs64u | rt64u;
 }
 
-static inline void XOR(reg32 opcode) {
+static void XOR(reg32 opcode) {
 	rd64u = rs64u ^ rt64u;
 }
 
-static inline void NOR(reg32 opcode) {
+static void NOR(reg32 opcode) {
 	rd64u = ~(rs64u | rt64u);
 }
 
-static inline void MFSA(reg32 opcode) {
+static void MFSA(reg32 opcode) {
 	rd64u = ps2.ee.barrelshift._u64[0];
 }
 
-static inline void MTSA(reg32 opcode) {
+static void MTSA(reg32 opcode) {
 	ps2.ee.barrelshift._u64[0] = rs64u;
 }
 
-static inline void SLT(reg32 opcode) {
+static void SLT(reg32 opcode) {
 	rd64s = rs64s < rt64s ? 1 : 0;
 }
 
-static inline void SLTU(reg32 opcode) {
+static void SLTU(reg32 opcode) {
 	rd64s = rs64u < rt64u ? 1 : 0;
 }
 
-static inline void DADD(reg32 opcode) {
+static void DADD(reg32 opcode) {
 	s64 res;
 	if (__builtin_add_overflow(rs64s, rt64s, &res)) {
 		exception();
@@ -290,14 +421,14 @@ static inline void DADD(reg32 opcode) {
 	rd64s = res;
 }
 
-static inline void DADDU(reg32 opcode) {
+static void DADDU(reg32 opcode) {
 	s64 res;
 	if (!__builtin_add_overflow(rs64s, rt64s, &res)) {
 		rd64s = res;
 	}
 }
 
-static inline void DSUB(reg32 opcode) {
+static void DSUB(reg32 opcode) {
 	s64 res;
 	if (__builtin_sub_overflow(rs64s, rt64s, &res)) {
 		exception();
@@ -306,105 +437,62 @@ static inline void DSUB(reg32 opcode) {
 	rd64s = res;
 }
 
-static inline void DSUBU(reg32 opcode) {
+static void DSUBU(reg32 opcode) {
 	s64 res;
 	if (!__builtin_sub_overflow(rs64s, rt64s, &res)) {
 		rd64s = res;
 	}
 }
 
-static inline void TGE(reg32 opcode) {}
+static void TGE(reg32 opcode) {}
 
-static inline void TGEU(reg32 opcode) {}
+static void TGEU(reg32 opcode) {}
 
-static inline void TLT(reg32 opcode) {}
+static void TLT(reg32 opcode) {}
 
-static inline void TLTU(reg32 opcode) {}
+static void TLTU(reg32 opcode) {}
 
-static inline void TEQ(reg32 opcode) {}
+static void TEQ(reg32 opcode) {}
 
-static inline void TNE(reg32 opcode) {}
+static void TNE(reg32 opcode) {}
 
-static inline void DSLL(reg32 opcode) {
+static void DSLL(reg32 opcode) {
 	rd64u = rt64u << sa();
 }
 
-static inline void DSRL(reg32 opcode) {
+static void DSRL(reg32 opcode) {
 	rd64u = rt64u >> sa();
 }
 
-static inline void DSRA(reg32 opcode) {
+static void DSRA(reg32 opcode) {
 	rd64s = rt64s >> sa();
 }
 
-static inline void DSLL32(reg32 opcode) {
+static void DSLL32(reg32 opcode) {
 	rd64u = rt64u << (sa() + 32);
 }
 
-static inline void DSRL32(reg32 opcode) {
+static void DSRL32(reg32 opcode) {
 	rd64u = rt64u >> (sa() + 32);
 }
 
-static inline void DSRA32(reg32 opcode) {
+static void DSRA32(reg32 opcode) {
 	rd64s = rt64s >> (sa() + 32);
 }
 
-static inline void BLTZ(reg32 opcode) {
+static void BLTZ(reg32 opcode) {
 	if (rs64s < 0) {
 		pc32s += offset;
 	}
 }
 
-static inline void BGEZ(reg32 opcode) {
+static void BGEZ(reg32 opcode) {
 	if (rs64s >= 0) {
 		pc32s += offset;
 	}
 }
 
-static inline void BLTZL(reg32 opcode) {
-	if (rs64s < 0) {
-		pc32s += offset;
-	} else {
-		pc32s += 4;
-	}
-}
-
-static inline void BGEZL(reg32 opcode) {
-	if (rs64s >= 0) {
-		pc32s += offset;
-	} else {
-		pc32s += 4;
-	}
-}
-
-static inline void TGEI(reg32 opcode) {}
-
-static inline void TGEIU(reg32 opcode) {}
-
-static inline void TLTI(reg32 opcode) {}
-
-static inline void TLTIU(reg32 opcode) {}
-
-static inline void TEQI(reg32 opcode) {}
-
-static inline void TNEI(reg32 opcode) {}
-
-static inline void BLTZAL(reg32 opcode) {
-	ra64s = pc32s + 8;
-	if (rs64s < 0) {
-		pc32s += offset;
-	}
-}
-
-static inline void BGEZAL(reg32 opcode) {
-	ra64s = pc32s + 8;
-	if (rs64s >= 0) {
-		pc32s += offset;
-	}
-}
-
-static inline void BLTZALL(reg32 opcode) {
-	ra64s = pc32s + 8;
+static void BLTZL(reg32 opcode) {
 	if (rs64s < 0) {
 		pc32s += offset;
 	} else {
@@ -412,7 +500,50 @@ static inline void BLTZALL(reg32 opcode) {
 	}
 }
 
-static inline void BGEZALL(reg32 opcode) {
+static void BGEZL(reg32 opcode) {
+	if (rs64s >= 0) {
+		pc32s += offset;
+	} else {
+		pc32s += 4;
+	}
+}
+
+static void TGEI(reg32 opcode) {}
+
+static void TGEIU(reg32 opcode) {}
+
+static void TLTI(reg32 opcode) {}
+
+static void TLTIU(reg32 opcode) {}
+
+static void TEQI(reg32 opcode) {}
+
+static void TNEI(reg32 opcode) {}
+
+static void BLTZAL(reg32 opcode) {
+	ra64s = pc32s + 8;
+	if (rs64s < 0) {
+		pc32s += offset;
+	}
+}
+
+static void BGEZAL(reg32 opcode) {
+	ra64s = pc32s + 8;
+	if (rs64s >= 0) {
+		pc32s += offset;
+	}
+}
+
+static void BLTZALL(reg32 opcode) {
+	ra64s = pc32s + 8;
+	if (rs64s < 0) {
+		pc32s += offset;
+	} else {
+		pc32s += 4;
+	}
+}
+
+static void BGEZALL(reg32 opcode) {
 	ra64s = pc32s + 8;
 	if (rs64s >= 0) {
 		pc32s += offset;
@@ -421,11 +552,11 @@ static inline void BGEZALL(reg32 opcode) {
 	}
 }
 
-static inline void MTSAB(reg32 opcode) {}
+static void MTSAB(reg32 opcode) {}
 
-static inline void MTSAH(reg32 opcode) {}
+static void MTSAH(reg32 opcode) {}
 
-static inline void MADD(reg32 opcode) {
+static void MADD(reg32 opcode) {
 	reg res;
 	res._s64[0] = ((s64) rs32s * (s64) rt32s) + (s64) ((lo64u & 0xffffffffull) | (hi64u << 32));
 	lo64s = res._s32[0];
@@ -433,7 +564,7 @@ static inline void MADD(reg32 opcode) {
 	rd64s = res._s32[0];
 }
 
-static inline void MADDU(reg32 opcode) {
+static void MADDU(reg32 opcode) {
 	reg res;
 	res._u64[0] = ((u64) rs32u * (u64) rt32u) + ((lo64u & 0xffffffffull) | (hi64u << 32));
 	lo64s = res._s32[0];
@@ -441,132 +572,132 @@ static inline void MADDU(reg32 opcode) {
 	rd64s = res._s32[0];
 }
 
-static inline void PLZCW(reg32 opcode) {}
+static void PLZCW(reg32 opcode) {}
 
-static inline void MULT1(reg32 opcode) {}
+static void MULT1(reg32 opcode) {}
 
-static inline void MULTU1(reg32 opcode) {}
+static void MULTU1(reg32 opcode) {}
 
-static inline void DIV1(reg32 opcode) {}
+static void DIV1(reg32 opcode) {}
 
-static inline void DIVU1(reg32 opcode) {}
+static void DIVU1(reg32 opcode) {}
 
-static inline void MFC0(reg32 opcode) {
+static void MFC0(reg32 opcode) {
 	rt32u = ps2.ee.cop0.raw[rd()]._u32[0];
 }
 
-static inline void MTC0(reg32 opcode) {
+static void MTC0(reg32 opcode) {
 	ps2.ee.cop0.raw[rd()]._u32[0] = rt32u;
 }
 
-static inline void BC0F(reg32 opcode) {}
+static void BC0F(reg32 opcode) {}
 
-static inline void BC0T(reg32 opcode) {}
+static void BC0T(reg32 opcode) {}
 
-static inline void BC0FL(reg32 opcode) {}
+static void BC0FL(reg32 opcode) {}
 
-static inline void BC0TL(reg32 opcode) {}
+static void BC0TL(reg32 opcode) {}
 
-static inline void TLBR(reg32 opcode) {}
+static void TLBR(reg32 opcode) {}
 
-static inline void TLBWI(reg32 opcode) {}
+static void TLBWI(reg32 opcode) {}
 
-static inline void TLBWR(reg32 opcode) {}
+static void TLBWR(reg32 opcode) {}
 
-static inline void TLBP(reg32 opcode) {}
+static void TLBP(reg32 opcode) {}
 
-static inline void ERET(reg32 opcode) {}
+static void ERET(reg32 opcode) {}
 
-static inline void EI(reg32 opcode) {}
+static void EI(reg32 opcode) {}
 
-static inline void DI(reg32 opcode) {}
+static void DI(reg32 opcode) {}
 
-static inline void MFC1(reg32 opcode) {}
+static void MFC1(reg32 opcode) {}
 
-static inline void DMFC1(reg32 opcode) {}
+static void DMFC1(reg32 opcode) {}
 
-static inline void CFC1(reg32 opcode) {}
+static void CFC1(reg32 opcode) {}
 
-static inline void MTC1(reg32 opcode) {}
+static void MTC1(reg32 opcode) {}
 
-static inline void DMTC1(reg32 opcode) {}
+static void DMTC1(reg32 opcode) {}
 
-static inline void CTC1(reg32 opcode) {}
+static void CTC1(reg32 opcode) {}
 
-static inline void BC1F(reg32 opcode) {}
+static void BC1F(reg32 opcode) {}
 
-static inline void BC1T(reg32 opcode) {}
+static void BC1T(reg32 opcode) {}
 
-static inline void BC1FL(reg32 opcode) {}
+static void BC1FL(reg32 opcode) {}
 
-static inline void BC1TL(reg32 opcode) {}
+static void BC1TL(reg32 opcode) {}
 
-static inline void MFC2(reg32 opcode) {}
+static void MFC2(reg32 opcode) {}
 
-static inline void CFC2(reg32 opcode) {}
+static void CFC2(reg32 opcode) {}
 
-static inline void MTC2(reg32 opcode) {}
+static void MTC2(reg32 opcode) {}
 
-static inline void CTC2(reg32 opcode) {}
+static void CTC2(reg32 opcode) {}
 
-static inline void BC2(reg32 opcode) {}
+static void BC2(reg32 opcode) {}
 
-static inline void LWC1(reg32 opcode) {}
+static void LWC1(reg32 opcode) {}
 
-static inline void LWC2(reg32 opcode) {}
+static void LWC2(reg32 opcode) {}
 
-static inline void PREF(reg32 opcode) {}
+static void PREF(reg32 opcode) {}
 
-static inline void LQC2(reg32 opcode) {}
+static void LQC2(reg32 opcode) {}
 
-static inline void LD(reg32 opcode) {
+static void LD(reg32 opcode) {
 	rt64u = memread64(base32s + simm16);
 }
 
-static inline void SWC1(reg32 opcode) {}
+static void SWC1(reg32 opcode) {}
 
-static inline void SWC2(reg32 opcode) {}
+static void SWC2(reg32 opcode) {}
 
-static inline void SQC2(reg32 opcode) {}
+static void SQC2(reg32 opcode) {}
 
-static inline void SD(reg32 opcode) {
+static void SD(reg32 opcode) {
 	memwrite64(base32s + simm16, rt64u);
 }
 
-static inline void J(reg32 opcode) {
+static void J(reg32 opcode) {
 	 branch((pc32u & 0xf0000000) | ((opcode._u32[0] << 2) & 0x0fffffff));
 }
 
-static inline void JAL(reg32 opcode) {
+static void JAL(reg32 opcode) {
 	ra64u = pc32u + 8;
 	branch((pc32u & 0xf0000000) | ((opcode._u32[0] << 2) & 0x0fffffff));
 }
 
-static inline void BEQ(reg32 opcode) {
+static void BEQ(reg32 opcode) {
 	if (rs64s == rt64s) {
-		branch(pc32s + offset);
+		branch(pc32s + offset + 4);
 	}
 }
 
-static inline void BNE(reg32 opcode) {
+static void BNE(reg32 opcode) {
 	if (rs64s != rt64s) {
-		branch(pc32s + offset);
+		branch(pc32s + offset + 4);
 	}
 }
 
-static inline void BLEZ(reg32 opcode) {
+static void BLEZ(reg32 opcode) {
 	if (rs64s <= 0) {
-		branch(pc32s + offset);
+		branch(pc32s + offset + 4);
 	}
 }
 
-static inline void BGTZ(reg32 opcode) {
+static void BGTZ(reg32 opcode) {
 	if (rs64s > 0) {
-		branch(pc32s + offset);
+		branch(pc32s + offset + 4);
 	}
 }
 
-static inline void ADDI(reg32 opcode) {
+static void ADDI(reg32 opcode) {
 	s32 res;
 	if (__builtin_add_overflow(rs32s, simm16, &res)) {
 		exception();
@@ -575,70 +706,70 @@ static inline void ADDI(reg32 opcode) {
 	rt64s = res;
 }
 
-static inline void ADDIU(reg32 opcode) {
+static void ADDIU(reg32 opcode) {
 	s32 res;
 	if (!__builtin_add_overflow(rs32s, simm16, &res)) {
 		rt64s = res;
 	}
 }
 
-static inline void SLTI(reg32 opcode) {
+static void SLTI(reg32 opcode) {
 	rd64s = rs64s < simm16 ? 1 : 0;
 }
 
-static inline void SLTIU(reg32 opcode) {
+static void SLTIU(reg32 opcode) {
 	rd64s = rs64s < (u64) (s64) simm16 ? 1 : 0;
 }
 
-static inline void ANDI(reg32 opcode) {
+static void ANDI(reg32 opcode) {
 	rt64u = rs64u & uimm16;
 }
 
-static inline void ORI(reg32 opcode) {
+static void ORI(reg32 opcode) {
 	rt64u = rs64u | uimm16;
 }
 
-static inline void XORI(reg32 opcode) {
+static void XORI(reg32 opcode) {
 	rt64u = rs64u ^ uimm16;
 }
 
-static inline void LUI(reg32 opcode) {
+static void LUI(reg32 opcode) {
 	rt64s = ((s32) simm16) << 16;
 }
 
-static inline void BEQL(reg32 opcode) {
+static void BEQL(reg32 opcode) {
 	if (rs64s == rt64s) {
-		branch(pc32s + offset);
+		branch(pc32s + offset + 4);
 	} else {
 		pc32s += 4;
 	}
 }
 
-static inline void BNEL(reg32 opcode) {
+static void BNEL(reg32 opcode) {
 	if (rs64s != rt64s) {
-		branch(pc32s + offset);
+		branch(pc32s + offset + 4);
 	} else {
 		pc32s += 4;
 	}
 }
 
-static inline void BLEZL(reg32 opcode) {
+static void BLEZL(reg32 opcode) {
 	if (rs64s <= 0) {
-		branch(pc32s + offset);
+		branch(pc32s + offset + 4);
 	} else {
 		pc32s += 4;
 	}
 }
 
-static inline void BGTZL(reg32 opcode) {
+static void BGTZL(reg32 opcode) {
 	if (rs64s > 0) {
-		branch(pc32s + offset);
+		branch(pc32s + offset + 4);
 	} else {
 		pc32s += 4;
 	}
 }
 
-static inline void DADDI(reg32 opcode) {
+static void DADDI(reg32 opcode) {
 	s64 res;
 	if (__builtin_add_overflow(rs64s, simm16, &res)) {
 		exception();
@@ -647,98 +778,101 @@ static inline void DADDI(reg32 opcode) {
 	rt64s = res;
 }
 
-static inline void DADDIU(reg32 opcode) {
+static void DADDIU(reg32 opcode) {
 	s64 res;
 	if (!__builtin_add_overflow(rs64s, simm16, &res)) {
 		rt64s = res;
 	}
 }
 
-static inline void LDL(reg32 opcode) {}
+static void LDL(reg32 opcode) {}
 
-static inline void LDR(reg32 opcode) {}
+static void LDR(reg32 opcode) {}
 
-static inline void LQ(reg32 opcode) {}
+static void LQ(reg32 opcode) {
+	rti(u128,0) = memread128(base32s + simm16);}
 
-static inline void SQ(reg32 opcode) {}
+static void SQ(reg32 opcode) {
+	memwrite128(base32s + simm16, rti(u128,0));
+}
 
-static inline void LB(reg32 opcode) {
+static void LB(reg32 opcode) {
 	rt64s = memread8(base32s + simm16);
 }
 
-static inline void LH(reg32 opcode) {
+static void LH(reg32 opcode) {
 	rt64s = (s16) memread16(base32s + simm16);
 }
 
-static inline void LWL(reg32 opcode) {}
+static void LWL(reg32 opcode) {}
 
-static inline void LW(reg32 opcode) {
+static void LW(reg32 opcode) {
 	rt64s = (s32) memread32(base32s + simm16);
 }
 
-static inline void LBU(reg32 opcode) {
+static void LBU(reg32 opcode) {
 	rt64u = memread8(base32s + simm16);
 }
 
-static inline void LHU(reg32 opcode) {
+static void LHU(reg32 opcode) {
 	rt64u = memread16(base32s + simm16);
 }
 
-static inline void LWR(reg32 opcode) {}
+static void LWR(reg32 opcode) {}
 
-static inline void LWU(reg32 opcode) {}
+static void LWU(reg32 opcode) {}
 
-static inline void SB(reg32 opcode) {
+static void SB(reg32 opcode) {
 	memwrite8(base32s + simm16, (u8) rt32u);
 }
 
-static inline void SH(reg32 opcode) {
+static void SH(reg32 opcode) {
 	memwrite16(base32s + simm16, (u16) rt32u);
 }
 
-static inline void SWL(reg32 opcode) {}
+static void SWL(reg32 opcode) {}
 
-static inline void SW(reg32 opcode) {
+static void SW(reg32 opcode) {
 	memwrite32(base32s + simm16, (u32) rt32u);
 }
 
-static inline void SDL(reg32 opcode) {}
+static void SDL(reg32 opcode) {}
 
-static inline void SDR(reg32 opcode) {}
+static void SDR(reg32 opcode) {}
 
-static inline void SWR(reg32 opcode) {}
+static void SWR(reg32 opcode) {}
 
-static inline void CACHE(reg32 opcode) {}
+static void CACHE(reg32 opcode) {}
 
-static inline void PADDW(reg32 opcode) {
+static void PADDW(reg32 opcode) {
 	rdi(s32, 0) = rsi(s32, 0) + rti(s32, 0);
 	rdi(s32, 1) = rsi(s32, 1) + rti(s32, 1);
 	rdi(s32, 2) = rsi(s32, 2) + rti(s32, 2);
 	rdi(s32, 3) = rsi(s32, 3) + rti(s32, 3);
 }
 
-static inline void PSUBW(reg32 opcode) {
+static void PSUBW(reg32 opcode) {
 	rdi(s32, 0) = rsi(s32, 0) + rti(s32, 0);
 	rdi(s32, 1) = rsi(s32, 1) + rti(s32, 1);
 	rdi(s32, 2) = rsi(s32, 2) + rti(s32, 2);
 	rdi(s32, 3) = rsi(s32, 3) + rti(s32, 3);
 }
 
-static inline void PCGTW(reg32 opcode) {
+static void PCGTW(reg32 opcode) {
 	rdi(s32, 0) = rsi(s32, 0) > rti(s32, 0) ? -1 : 0;
 	rdi(s32, 1) = rsi(s32, 1) > rti(s32, 1) ? -1 : 0;
 	rdi(s32, 2) = rsi(s32, 2) > rti(s32, 2) ? -1 : 0;
 	rdi(s32, 3) = rsi(s32, 3) > rti(s32, 3) ? -1 : 0;
 }
 
-static inline void PMAXW(reg32 opcode) {
+static void PMAXW(reg32 opcode) {
 	rdi(s32, 0) = rsi(s32, 0) > rti(s32, 0) ? rsi(s32, 0) : rti(s32, 0);
 	rdi(s32, 1) = rsi(s32, 1) > rti(s32, 1) ? rsi(s32, 1) : rti(s32, 1);
 	rdi(s32, 2) = rsi(s32, 2) > rti(s32, 2) ? rsi(s32, 2) : rti(s32, 2);
 	rdi(s32, 3) = rsi(s32, 3) > rti(s32, 3) ? rsi(s32, 3) : rti(s32, 3);
 }
 
-static inline void PADDH(reg32 opcode) {
+static void PADDH(reg32 opcode) {
 	rdi(s16, 0) = rsi(s16, 0) + rti(s16, 0);
 	rdi(s16, 1) = rsi(s16, 1) + rti(s16, 1);
 	rdi(s16, 2) = rsi(s16, 2) + rti(s16, 2);
@@ -749,7 +883,7 @@ static inline void PADDH(reg32 opcode) {
 	rdi(s16, 7) = rsi(s16, 7) + rti(s16, 7);
 }
 
-static inline void PSUBH(reg32 opcode) {
+static void PSUBH(reg32 opcode) {
 
 	rdi(s16, 0) = rsi(s16, 0) - rti(s16, 0);
 	rdi(s16, 1) = rsi(s16, 1) - rti(s16, 1);
@@ -761,7 +895,7 @@ static inline void PSUBH(reg32 opcode) {
 	rdi(s16, 7) = rsi(s16, 7) - rti(s16, 7);
 }
 
-static inline void PCGTH(reg32 opcode) {
+static void PCGTH(reg32 opcode) {
 
 	rdi(s16, 0) = rsi(s16, 0) > rti(s16, 0) ? -1 : 0;
 	rdi(s16, 1) = rsi(s16, 1) > rti(s16, 1) ? -1 : 0;
@@ -773,7 +907,7 @@ static inline void PCGTH(reg32 opcode) {
 	rdi(s16, 7) = rsi(s16, 7) > rti(s16, 7) ? -1 : 0;
 }
 
-static inline void PMAXH(reg32 opcode) {
+static void PMAXH(reg32 opcode) {
 
 	rdi(s16, 0) = rsi(s16, 0) > rti(s16, 0) ? rsi(s16, 0) : rti(s16, 0);
 	rdi(s16, 1) = rsi(s16, 1) > rti(s16, 1) ? rsi(s16, 1) : rti(s16, 1);
@@ -785,7 +919,7 @@ static inline void PMAXH(reg32 opcode) {
 	rdi(s16, 7) = rsi(s16, 7) > rti(s16, 7) ? rsi(s16, 3) : rti(s16, 7);
 }
 
-static inline void PADDB(reg32 opcode) {
+static void PADDB(reg32 opcode) {
 
 	rdi(s8, 0) = rsi(s8, 0) + rti(s8, 0);
 	rdi(s8, 1) = rsi(s8, 1) + rti(s8, 1);
@@ -805,7 +939,7 @@ static inline void PADDB(reg32 opcode) {
 	rdi(s8, 15) = rsi(s8, 15) + rti(s8, 15);
 }
 
-static inline void PSUBB(reg32 opcode) {
+static void PSUBB(reg32 opcode) {
 
 	rdi(s8, 0) = rsi(s8, 0) - rti(s8, 0);
 	rdi(s8, 1) = rsi(s8, 1) - rti(s8, 1);
@@ -825,7 +959,7 @@ static inline void PSUBB(reg32 opcode) {
 	rdi(s8, 15) = rsi(s8, 15) - rti(s8, 15);
 }
 
-static inline void PCGTB(reg32 opcode) {
+static void PCGTB(reg32 opcode) {
 
 	rdi(s8, 0) = rsi(s8, 0) > rti(s8, 0) ? -1 : 0;
 	rdi(s8, 1) = rsi(s8, 1) > rti(s8, 1) ? -1 : 0;
@@ -845,7 +979,7 @@ static inline void PCGTB(reg32 opcode) {
 	rdi(s8, 15) = rsi(s8, 15) > rti(s8, 15) ? -1 : 0;
 }
 
-static inline void PADDSW(reg32 opcode) {
+static void PADDSW(reg32 opcode) {
 
 	rdi(s32, 0) = satadd(rsi(s32, 0), rti(s32, 0));
 	rdi(s32, 1) = satadd(rsi(s32, 1), rti(s32, 1));
@@ -853,7 +987,7 @@ static inline void PADDSW(reg32 opcode) {
 	rdi(s32, 3) = satadd(rsi(s32, 3), rti(s32, 3));
 }
 
-static inline void PSUBSW(reg32 opcode) {
+static void PSUBSW(reg32 opcode) {
 
 	rdi(s32, 0) = satsub(rsi(s32, 0), rti(s32, 0));
 	rdi(s32, 1) = satsub(rsi(s32, 1), rti(s32, 1));
@@ -861,21 +995,21 @@ static inline void PSUBSW(reg32 opcode) {
 	rdi(s32, 3) = satsub(rsi(s32, 3), rti(s32, 3));
 }
 
-static inline void PEXTLW(reg32 opcode) {
+static void PEXTLW(reg32 opcode) {
 	rdi(u32, 0) = rti(u32, 0);
 	rdi(u32, 1) = rsi(u32, 0);
 	rdi(u32, 2) = rti(u32, 1);
 	rdi(u32, 3) = rsi(u32, 1);
 }
 
-static inline void PPACW(reg32 opcode) {
+static void PPACW(reg32 opcode) {
 	rdi(s32, 0) = rti(s32, 0);
 	rdi(s32, 1) = rti(s32, 2);
 	rdi(s32, 2) = rsi(s32, 1);
 	rdi(s32, 3) = rsi(s32, 3);
 }
 
-static inline void PADDSH(reg32 opcode) {
+static void PADDSH(reg32 opcode) {
 	rdi(s16, 0) = satadd(rsi(s16, 0), rti(s16, 0));
 	rdi(s16, 1) = satadd(rsi(s16, 1), rti(s16, 1));
 	rdi(s16, 2) = satadd(rsi(s16, 2), rti(s16, 2));
@@ -886,7 +1020,7 @@ static inline void PADDSH(reg32 opcode) {
 	rdi(s16, 7) = satadd(rsi(s16, 7), rti(s16, 7));
 }
 
-static inline void PSUBSH(reg32 opcode) {
+static void PSUBSH(reg32 opcode) {
 	rdi(s16, 0) = satsub(rsi(s16, 0), rti(s16, 0));
 	rdi(s16, 1) = satsub(rsi(s16, 1), rti(s16, 1));
 	rdi(s16, 2) = satsub(rsi(s16, 2), rti(s16, 2));
@@ -897,11 +1031,11 @@ static inline void PSUBSH(reg32 opcode) {
 	rdi(s16, 7) = satsub(rsi(s16, 7), rti(s16, 7));
 }
 
-static inline void PEXTLH(reg32 opcode) {}
+static void PEXTLH(reg32 opcode) {}
 
-static inline void PPACH(reg32 opcode) {}
+static void PPACH(reg32 opcode) {}
 
-static inline void PADDSB(reg32 opcode) {
+static void PADDSB(reg32 opcode) {
 
 	rdi(s8, 0) = satadd(rsi(s8, 0), rti(s8, 0));
 	rdi(s8, 1) = satadd(rsi(s8, 1), rti(s8, 1));
@@ -921,7 +1055,7 @@ static inline void PADDSB(reg32 opcode) {
 	rdi(s8, 15) = satadd(rsi(s8, 15), rti(s8, 15));
 }
 
-static inline void PSUBSB(reg32 opcode) {
+static void PSUBSB(reg32 opcode) {
 
 	rdi(s8, 0) = satsub(rsi(s8, 0), rti(s8, 0));
 	rdi(s8, 1) = satsub(rsi(s8, 1), rti(s8, 1));
@@ -941,7 +1075,7 @@ static inline void PSUBSB(reg32 opcode) {
 	rdi(s8, 15) = satsub(rsi(s8, 15), rti(s8, 15));
 }
 
-static inline void PEXTLB(reg32 opcode) {
+static void PEXTLB(reg32 opcode) {
 	rdi(u8, 0) = rti(u8, 0);
 	rdi(u8, 1) = rsi(u8, 0);
 	rdi(u8, 2) = rti(u8, 1);
@@ -960,7 +1094,7 @@ static inline void PEXTLB(reg32 opcode) {
 	rdi(u8, 15) = rsi(u8, 7);
 }
 
-static inline void PPACB(reg32 opcode) {
+static void PPACB(reg32 opcode) {
 	rdi(u8, 0) = rti(u8, 0);
 	rdi(u8, 1) = rti(u8, 2);
 	rdi(u8, 2) = rti(u8, 4);
@@ -979,7 +1113,7 @@ static inline void PPACB(reg32 opcode) {
 	rdi(u8, 15) = rsi(u8, 14);
 }
 
-static inline void PEXT5(reg32 opcode) {
+static void PEXT5(reg32 opcode) {
 	rdi(u8, 0) = (rti(u32, 0) & 0x1f) << 3;
 	rdi(u8, 1) = ((rti(u32, 0) >> 5) & 0x1f) << 3;
 	rdi(u8, 2) = ((rti(u32, 0) >> 10) & 0x1f) << 3;
@@ -1001,304 +1135,304 @@ static inline void PEXT5(reg32 opcode) {
 
 }
 
-static inline void PPAC5(reg32 opcode) {}
+static void PPAC5(reg32 opcode) {}
 
-static inline void PABSW(reg32 opcode) {}
+static void PABSW(reg32 opcode) {}
 
-static inline void PCEQW(reg32 opcode) {}
+static void PCEQW(reg32 opcode) {}
 
-static inline void PMINW(reg32 opcode) {}
+static void PMINW(reg32 opcode) {}
 
-static inline void PADSBH(reg32 opcode) {}
+static void PADSBH(reg32 opcode) {}
 
-static inline void PABSH(reg32 opcode) {}
+static void PABSH(reg32 opcode) {}
 
-static inline void PCEQH(reg32 opcode) {}
+static void PCEQH(reg32 opcode) {}
 
-static inline void PMINH(reg32 opcode) {}
+static void PMINH(reg32 opcode) {}
 
-static inline void PCEQB(reg32 opcode) {}
+static void PCEQB(reg32 opcode) {}
 
-static inline void PADDUW(reg32 opcode) {}
+static void PADDUW(reg32 opcode) {}
 
-static inline void PSUBUW(reg32 opcode) {}
+static void PSUBUW(reg32 opcode) {}
 
-static inline void PEXTUW(reg32 opcode) {}
+static void PEXTUW(reg32 opcode) {}
 
-static inline void PADDUH(reg32 opcode) {}
+static void PADDUH(reg32 opcode) {}
 
-static inline void PSUBUH(reg32 opcode) {}
+static void PSUBUH(reg32 opcode) {}
 
-static inline void PEXTUH(reg32 opcode) {}
+static void PEXTUH(reg32 opcode) {}
 
-static inline void PADDUB(reg32 opcode) {}
+static void PADDUB(reg32 opcode) {}
 
-static inline void PSUBUB(reg32 opcode) {}
+static void PSUBUB(reg32 opcode) {}
 
-static inline void PEXTUB(reg32 opcode) {}
+static void PEXTUB(reg32 opcode) {}
 
-static inline void QFSRV(reg32 opcode) {}
+static void QFSRV(reg32 opcode) {}
 
-static inline void PMADDW(reg32 opcode) {}
+static void PMADDW(reg32 opcode) {}
 
-static inline void PSLLVW(reg32 opcode) {}
+static void PSLLVW(reg32 opcode) {}
 
-static inline void PSRLVW(reg32 opcode) {}
+static void PSRLVW(reg32 opcode) {}
 
-static inline void PMSUBW(reg32 opcode) {}
+static void PMSUBW(reg32 opcode) {}
 
-static inline void PMFHI(reg32 opcode) {}
+static void PMFHI(reg32 opcode) {}
 
-static inline void PMFLO(reg32 opcode) {}
+static void PMFLO(reg32 opcode) {}
 
-static inline void PINTH(reg32 opcode) {}
+static void PINTH(reg32 opcode) {}
 
-static inline void PMULTW(reg32 opcode) {}
+static void PMULTW(reg32 opcode) {}
 
-static inline void PDIVW(reg32 opcode) {}
+static void PDIVW(reg32 opcode) {}
 
-static inline void PCPYLD(reg32 opcode) {}
+static void PCPYLD(reg32 opcode) {}
 
-static inline void PMADDH(reg32 opcode) {}
+static void PMADDH(reg32 opcode) {}
 
-static inline void PHMADH(reg32 opcode) {}
+static void PHMADH(reg32 opcode) {}
 
-static inline void PAND(reg32 opcode) {
+static void PAND(reg32 opcode) {
 	rdi(u128, 0) = rsi(u128, 0) & rti(u128, 0);
 }
 
-static inline void PXOR(reg32 opcode) {
+static void PXOR(reg32 opcode) {
 	rdi(u128, 0) = rsi(u128, 0) ^ rti(u128, 0);
 }
 
-static inline void PMSUBH(reg32 opcode) {}
+static void PMSUBH(reg32 opcode) {}
 
-static inline void PHMSBH(reg32 opcode) {}
+static void PHMSBH(reg32 opcode) {}
 
-static inline void PEXEH(reg32 opcode) {}
+static void PEXEH(reg32 opcode) {}
 
-static inline void PREVH(reg32 opcode) {}
+static void PREVH(reg32 opcode) {}
 
-static inline void PMULTH(reg32 opcode) {}
+static void PMULTH(reg32 opcode) {}
 
-static inline void PDIVBW(reg32 opcode) {}
+static void PDIVBW(reg32 opcode) {}
 
-static inline void PEXEW(reg32 opcode) {}
+static void PEXEW(reg32 opcode) {}
 
-static inline void PROT3W(reg32 opcode) {}
+static void PROT3W(reg32 opcode) {}
 
-static inline void PMADDUW(reg32 opcode) {}
+static void PMADDUW(reg32 opcode) {}
 
-static inline void PSRAVW(reg32 opcode) {}
+static void PSRAVW(reg32 opcode) {}
 
-static inline void PMTHI(reg32 opcode) {}
+static void PMTHI(reg32 opcode) {}
 
-static inline void PMTLO(reg32 opcode) {}
+static void PMTLO(reg32 opcode) {}
 
-static inline void PINTEH(reg32 opcode) {}
+static void PINTEH(reg32 opcode) {}
 
-static inline void PMULTUW(reg32 opcode) {}
+static void PMULTUW(reg32 opcode) {}
 
-static inline void PDIVUW(reg32 opcode) {}
+static void PDIVUW(reg32 opcode) {}
 
-static inline void PCPYUD(reg32 opcode) {}
+static void PCPYUD(reg32 opcode) {}
 
-static inline void POR(reg32 opcode) {}
+static void POR(reg32 opcode) {}
 
-static inline void PNOR(reg32 opcode) {}
+static void PNOR(reg32 opcode) {}
 
-static inline void PEXCH(reg32 opcode) {}
+static void PEXCH(reg32 opcode) {}
 
-static inline void PCPYH(reg32 opcode) {}
+static void PCPYH(reg32 opcode) {}
 
-static inline void PEXCW(reg32 opcode) {}
+static void PEXCW(reg32 opcode) {}
 
-static inline void PMFHL(reg32 opcode) {}
+static void PMFHL(reg32 opcode) {}
 
-static inline void PMTHL(reg32 opcode) {}
+static void PMTHL(reg32 opcode) {}
 
-static inline void PSLLH(reg32 opcode) {}
+static void PSLLH(reg32 opcode) {}
 
-static inline void PSRLH(reg32 opcode) {}
+static void PSRLH(reg32 opcode) {}
 
-static inline void PSRAH(reg32 opcode) {}
+static void PSRAH(reg32 opcode) {}
 
-static inline void PSLLW(reg32 opcode) {}
+static void PSLLW(reg32 opcode) {}
 
-static inline void PSRLW(reg32 opcode) {}
+static void PSRLW(reg32 opcode) {}
 
-static inline void PSRAW(reg32 opcode) {}
+static void PSRAW(reg32 opcode) {}
 
-static inline void SRLV(reg32 opcode) {}
+static void SRLV(reg32 opcode) {}
 
-static inline void SRAV(reg32 opcode) {}
+static void SRAV(reg32 opcode) {}
 
-static inline void MFHI1(reg32 opcode) {}
+static void MFHI1(reg32 opcode) {}
 
-static inline void MTHI1(reg32 opcode) {}
+static void MTHI1(reg32 opcode) {}
 
-static inline void MFLO1(reg32 opcode) {}
+static void MFLO1(reg32 opcode) {}
 
-static inline void MTLO1(reg32 opcode) {}
+static void MTLO1(reg32 opcode) {}
 
-static inline void MADD1(reg32 opcode) {}
+static void MADD1(reg32 opcode) {}
 
-static inline void MADDU1(reg32 opcode) {}
+static void MADDU1(reg32 opcode) {}
 
-static inline void ADD_S(reg32 opcode) {}
+static void ADD_S(reg32 opcode) {}
 
-static inline void SUB_S(reg32 opcode) {}
+static void SUB_S(reg32 opcode) {}
 
-static inline void MUL_S(reg32 opcode) {}
+static void MUL_S(reg32 opcode) {}
 
-static inline void DIV_S(reg32 opcode) {}
+static void DIV_S(reg32 opcode) {}
 
-static inline void SQRT_S(reg32 opcode) {}
+static void SQRT_S(reg32 opcode) {}
 
-static inline void ABS_S(reg32 opcode) {}
+static void ABS_S(reg32 opcode) {}
 
-static inline void MOV_S(reg32 opcode) {}
+static void MOV_S(reg32 opcode) {}
 
-static inline void NEG_S(reg32 opcode) {}
+static void NEG_S(reg32 opcode) {}
 
-static inline void SUBA_S(reg32 opcode) {}
+static void SUBA_S(reg32 opcode) {}
 
-static inline void MULA_S(reg32 opcode) {}
+static void MULA_S(reg32 opcode) {}
 
-static inline void MADD_S(reg32 opcode) {}
+static void MADD_S(reg32 opcode) {}
 
-static inline void MSUB_S(reg32 opcode) {}
+static void MSUB_S(reg32 opcode) {}
 
-static inline void MADDA_S(reg32 opcode) {}
+static void MADDA_S(reg32 opcode) {}
 
-static inline void MSUBA_S(reg32 opcode) {}
+static void MSUBA_S(reg32 opcode) {}
 
-static inline void CVT_W_S(reg32 opcode) {}
+static void CVT_W_S(reg32 opcode) {}
 
-static inline void MAX_S(reg32 opcode) {}
+static void MAX_S(reg32 opcode) {}
 
-static inline void MIN_S(reg32 opcode) {}
+static void MIN_S(reg32 opcode) {}
 
-static inline void C_F_S(reg32 opcode) {}
+static void C_F_S(reg32 opcode) {}
 
-static inline void C_EQ_S(reg32 opcode) {}
+static void C_EQ_S(reg32 opcode) {}
 
-static inline void C_LT_S(reg32 opcode) {}
+static void C_LT_S(reg32 opcode) {}
 
-static inline void C_LE_S(reg32 opcode) {}
+static void C_LE_S(reg32 opcode) {}
 
-static inline void RSQRT_S(reg32 opcode) {}
+static void RSQRT_S(reg32 opcode) {}
 
-static inline void CVT_S(reg32 opcode) {}
+static void CVT_S(reg32 opcode) {}
 
-static inline void CVT_S_W(reg32 opcode) {}
+static void CVT_S_W(reg32 opcode) {}
 
-static inline void ADDA_S(reg32 opcode) {}
+static void ADDA_S(reg32 opcode) {}
 
 //vu macro mode
-static inline void BC2F(reg32 opcode){}
-static inline void BC2FL(reg32 opcode){}
-static inline void BC2T(reg32 opcode){}
-static inline void BC2TL(reg32 opcode){}
-static inline void QMFC2(reg32 opcode){}
-static inline void QMTC2(reg32 opcode){}
-static inline void VABS(reg32 opcode){}
-static inline void VADD(reg32 opcode){}
-static inline void VADDi(reg32 opcode){}
-static inline void VADDq(reg32 opcode){}
-static inline void VADDbc(reg32 opcode){}
-static inline void VADDA(reg32 opcode){}
-static inline void VADDAi(reg32 opcode){}
-static inline void VADDAq(reg32 opcode){}
-static inline void VADDAbc(reg32 opcode){}
-static inline void VCALLMS(reg32 opcode){}
-static inline void VCALLMSR(reg32 opcode){}
-static inline void VCLIP(reg32 opcode){}
-static inline void VDIV(reg32 opcode){}
-static inline void VFTOI0(reg32 opcode){}
-static inline void VFTOI4(reg32 opcode){}
-static inline void VFTOI12(reg32 opcode){}
-static inline void VFTOI15(reg32 opcode){}
-static inline void VIADD(reg32 opcode){}
-static inline void VIADDI(reg32 opcode){}
-static inline void VIAND(reg32 opcode){}
-static inline void VILWR(reg32 opcode){}
-static inline void VIOR(reg32 opcode){}
-static inline void VISUB(reg32 opcode){}
-static inline void VISWR(reg32 opcode){}
-static inline void VITOF0(reg32 opcode){}
-static inline void VITOF4(reg32 opcode){}
-static inline void VITOF12(reg32 opcode){}
-static inline void VITOF15(reg32 opcode){}
+static void BC2F(reg32 opcode){}
+static void BC2FL(reg32 opcode){}
+static void BC2T(reg32 opcode){}
+static void BC2TL(reg32 opcode){}
+static void QMFC2(reg32 opcode){}
+static void QMTC2(reg32 opcode){}
+static void VABS(reg32 opcode){}
+static void VADD(reg32 opcode){}
+static void VADDi(reg32 opcode){}
+static void VADDq(reg32 opcode){}
+static void VADDbc(reg32 opcode){}
+static void VADDA(reg32 opcode){}
+static void VADDAi(reg32 opcode){}
+static void VADDAq(reg32 opcode){}
+static void VADDAbc(reg32 opcode){}
+static void VCALLMS(reg32 opcode){}
+static void VCALLMSR(reg32 opcode){}
+static void VCLIP(reg32 opcode){}
+static void VDIV(reg32 opcode){}
+static void VFTOI0(reg32 opcode){}
+static void VFTOI4(reg32 opcode){}
+static void VFTOI12(reg32 opcode){}
+static void VFTOI15(reg32 opcode){}
+static void VIADD(reg32 opcode){}
+static void VIADDI(reg32 opcode){}
+static void VIAND(reg32 opcode){}
+static void VILWR(reg32 opcode){}
+static void VIOR(reg32 opcode){}
+static void VISUB(reg32 opcode){}
+static void VISWR(reg32 opcode){}
+static void VITOF0(reg32 opcode){}
+static void VITOF4(reg32 opcode){}
+static void VITOF12(reg32 opcode){}
+static void VITOF15(reg32 opcode){}
 
-static inline void VLQD(reg32 opcode){}
-static inline void VLQI(reg32 opcode){}
-static inline void VMADD(reg32 opcode){}
-static inline void VMADDi(reg32 opcode){}
-static inline void VMADDq(reg32 opcode){}
-static inline void VMADDbc(reg32 opcode){}
-static inline void VMADDA(reg32 opcode){}
-static inline void VMADDAi(reg32 opcode){}
-static inline void VMADDAq(reg32 opcode){}
-static inline void VMADDAbc(reg32 opcode){}
-static inline void VMAX(reg32 opcode){}
-static inline void VMAXi(reg32 opcode){}
-static inline void VMAXbc(reg32 opcode){}
+static void VLQD(reg32 opcode){}
+static void VLQI(reg32 opcode){}
+static void VMADD(reg32 opcode){}
+static void VMADDi(reg32 opcode){}
+static void VMADDq(reg32 opcode){}
+static void VMADDbc(reg32 opcode){}
+static void VMADDA(reg32 opcode){}
+static void VMADDAi(reg32 opcode){}
+static void VMADDAq(reg32 opcode){}
+static void VMADDAbc(reg32 opcode){}
+static void VMAX(reg32 opcode){}
+static void VMAXi(reg32 opcode){}
+static void VMAXbc(reg32 opcode){}
 
-static inline void VMFIR(reg32 opcode){}
+static void VMFIR(reg32 opcode){}
 
-static inline void VMINI(reg32 opcode){}
-static inline void VMINIi(reg32 opcode){}
-static inline void VMINIbc(reg32 opcode){}
+static void VMINI(reg32 opcode){}
+static void VMINIi(reg32 opcode){}
+static void VMINIbc(reg32 opcode){}
 
-static inline void VMOVE(reg32 opcode){}
-static inline void VMR32(reg32 opcode){}
-static inline void VMSUB(reg32 opcode){}
-static inline void VMSUBi(reg32 opcode){}
-static inline void VMSUBq(reg32 opcode){}
-static inline void VMSUBbc(reg32 opcode){}
-static inline void VMSUBA(reg32 opcode){}
-static inline void VMSUBAi(reg32 opcode){}
-static inline void VMSUBAq(reg32 opcode){}
-static inline void VMSUBAbc(reg32 opcode){}
+static void VMOVE(reg32 opcode){}
+static void VMR32(reg32 opcode){}
+static void VMSUB(reg32 opcode){}
+static void VMSUBi(reg32 opcode){}
+static void VMSUBq(reg32 opcode){}
+static void VMSUBbc(reg32 opcode){}
+static void VMSUBA(reg32 opcode){}
+static void VMSUBAi(reg32 opcode){}
+static void VMSUBAq(reg32 opcode){}
+static void VMSUBAbc(reg32 opcode){}
 
-static inline void VMTIR(reg32 opcode){}
+static void VMTIR(reg32 opcode){}
 
-static inline void VMUL(reg32 opcode){}
-static inline void VMULi(reg32 opcode){}
-static inline void VMULq(reg32 opcode){}
-static inline void VMULbc(reg32 opcode){}
-static inline void VMULA(reg32 opcode){}
-static inline void VMULAi(reg32 opcode){}
-static inline void VMULAq(reg32 opcode){}
-static inline void VMULAbc(reg32 opcode){}
-static inline void VNOP(reg32 opcode){}
-static inline void VOPMULA(reg32 opcode){}
-static inline void VOPMSUB(reg32 opcode){}
-static inline void VRGET(reg32 opcode){}
-static inline void VRINIT(reg32 opcode){}
-static inline void VRNEXT(reg32 opcode){}
-static inline void VRSQRT(reg32 opcode){}
-static inline void VRXOR(reg32 opcode){}
-static inline void VSQD(reg32 opcode){}
-static inline void VSQI(reg32 opcode){}
-static inline void VSQRT(reg32 opcode){}
-static inline void VSUB(reg32 opcode){}
-static inline void VSUBi(reg32 opcode){}
-static inline void VSUBq(reg32 opcode){}
-static inline void VSUBbc(reg32 opcode){}
-static inline void VSUBA(reg32 opcode){}
-static inline void VSUBAi(reg32 opcode){}
-static inline void VSUBAq(reg32 opcode){}
-static inline void VSUBAbc(reg32 opcode){}
-static inline void VWAITQ(reg32 opcode){}
+static void VMUL(reg32 opcode){}
+static void VMULi(reg32 opcode){}
+static void VMULq(reg32 opcode){}
+static void VMULbc(reg32 opcode){}
+static void VMULA(reg32 opcode){}
+static void VMULAi(reg32 opcode){}
+static void VMULAq(reg32 opcode){}
+static void VMULAbc(reg32 opcode){}
+static void VNOP(reg32 opcode){}
+static void VOPMULA(reg32 opcode){}
+static void VOPMSUB(reg32 opcode){}
+static void VRGET(reg32 opcode){}
+static void VRINIT(reg32 opcode){}
+static void VRNEXT(reg32 opcode){}
+static void VRSQRT(reg32 opcode){}
+static void VRXOR(reg32 opcode){}
+static void VSQD(reg32 opcode){}
+static void VSQI(reg32 opcode){}
+static void VSQRT(reg32 opcode){}
+static void VSUB(reg32 opcode){}
+static void VSUBi(reg32 opcode){}
+static void VSUBq(reg32 opcode){}
+static void VSUBbc(reg32 opcode){}
+static void VSUBA(reg32 opcode){}
+static void VSUBAi(reg32 opcode){}
+static void VSUBAq(reg32 opcode){}
+static void VSUBAbc(reg32 opcode){}
+static void VWAITQ(reg32 opcode){}
 
 
 
-static inline void invalid() { /* Handle invalid opcode */ }
+static void invalid(reg32 opcode) { printf("invalid %08x\n",opcode._u32[0]); assert(false); }
 
 #define ex(func) case (__COUNTER__-baseval): func(opcode); break
-#define null() case (__COUNTER__-baseval): invalid(); break
+#define null() case (__COUNTER__-baseval): invalid(opcode); break
 
 
 void interpret(u32 instr) {
@@ -1375,7 +1509,7 @@ void interpret(u32 instr) {
 	}
 }
 
-static inline void SPECIAL(reg32 opcode) {
+static void SPECIAL(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
@@ -1446,7 +1580,7 @@ static inline void SPECIAL(reg32 opcode) {
 	}
 }
 
-static inline void REGIMM(reg32 opcode) {
+static void REGIMM(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 16) & 0x1f) {
@@ -1485,7 +1619,7 @@ static inline void REGIMM(reg32 opcode) {
 	}
 }
 
-static inline void MMI(reg32 opcode) {
+static void MMI(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
@@ -1557,7 +1691,7 @@ static inline void MMI(reg32 opcode) {
 }
 
 
-static inline void MMI0(reg32 opcode) {
+static void MMI0(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 6) & 0x1f) {
@@ -1596,7 +1730,7 @@ static inline void MMI0(reg32 opcode) {
 	}
 }
 
-static inline void MMI1(reg32 opcode) {
+static void MMI1(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 6) & 0x1f) {
@@ -1636,7 +1770,7 @@ static inline void MMI1(reg32 opcode) {
 }
 
 
-static inline void MMI2(reg32 opcode) {
+static void MMI2(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 6) & 0x1f) {
@@ -1676,7 +1810,7 @@ static inline void MMI2(reg32 opcode) {
 }
 
 
-static inline void MMI3(reg32 opcode) {
+static void MMI3(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 6) & 0x1f) {
@@ -1715,7 +1849,7 @@ static inline void MMI3(reg32 opcode) {
 	}
 }
 
-static inline void BC0(reg32 opcode) {
+static void BC0(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 	switch ((opcode._u32[0] >> 16) & 0x1f) {
 		ex(BC0F);
@@ -1725,7 +1859,7 @@ static inline void BC0(reg32 opcode) {
 	}
 }
 
-static inline void COP0(reg32 opcode) {
+static void COP0(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 21) & 0x1f) {
@@ -1745,7 +1879,7 @@ static inline void COP0(reg32 opcode) {
 		null();
 		null();
 		null();
-		ex(TLB);
+		ex(C0);
 		null();
 		null();
 		null();
@@ -1796,17 +1930,24 @@ static inline void COP0(reg32 opcode) {
 	}
 }
 
-static inline void TLB(reg32 opcode) {
+static void C0(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
+		null();
 		ex(TLBR);
 		ex(TLBWI);
 		null();
 		null();
 		null();
-		null();
 		ex(TLBWR);
+		null();
+		ex(TLBP);
+		null();
+		null();
+		null();
+		null();
+		null();
 		null();
 		null();
 		null();
@@ -1825,12 +1966,35 @@ static inline void TLB(reg32 opcode) {
 		null();
 		null();
 		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
+		null();
 		ex(EI);
 		ex(DI);
 	}
 }
 
-static inline void COP1(reg32 opcode) {
+static void COP1(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 21) & 0x1f) {
@@ -1853,7 +2017,7 @@ static inline void COP1(reg32 opcode) {
 	}
 }
 
-static inline void BC1(reg32 opcode) {
+static void BC1(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch ((opcode._u32[0] >> 16) & 0x1f) {
@@ -1868,7 +2032,7 @@ static inline void BC1(reg32 opcode) {
 	}
 }
 
-static inline void FPU_S(reg32 opcode) {
+static void FPU_S(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {
@@ -1919,7 +2083,7 @@ static inline void FPU_S(reg32 opcode) {
 	}
 }
 
-static inline void FPU_W(reg32 opcode) {
+static void FPU_W(reg32 opcode) {
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] & 0x3f) {

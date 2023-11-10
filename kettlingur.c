@@ -1,3 +1,13 @@
+#include <stdint.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include <limits.h>
+#include <math.h>
+#include <stdbool.h>
+
 #include "kettlingur.h"
 
 struct ps2 ps2;
@@ -10,6 +20,7 @@ void init() {
 	ps2.ee.ram = aligned_alloc(4096, EE_RAM_SIZE);
 	ps2.ee.scratch = aligned_alloc(4096, EE_SCRATCHPAD_SIZE);
 	ps2.ee.bios = aligned_alloc(4096, BIOS_SIZE);
+	ps2.ee.regs = aligned_alloc(4096, EE_REGS_SIZE);
 
 	ps2.vu0.code = NULL;
 	ps2.vu0.data = NULL;
@@ -37,6 +48,7 @@ void fini() {
 	//no free for ps2.iop.bios because it is also ps2.ee.bios
 	free(ps2.iop.scratch);
 	free(ps2.iop.ram);
+	free(ps2.ee.regs);
 	free(ps2.ee.bios);
 	free(ps2.ee.scratch);
 	free(ps2.ee.ram);
@@ -94,11 +106,12 @@ void loadelf(char *path) {
 u32 memread32(u32 addr);
 int main(int argc, char **argv) {
 	init();
-	loadbios("../bios/ps2.bin");
+	//loadbios("../bios/ps2.bin");
+	loadelf("../thirdparty/ps2autotests/tests/cpu/ee/alu.elf");
 	//loadelf("../elfs/ee/helloworld");
 	char dis[1024];
 	reg32 a, b;
 
-	step(100);
+	step(50000);
 	fini();
 }
