@@ -290,32 +290,29 @@ struct cop1 {
 	reg32 fcr[32];
 };
 
-struct ps2{
-	struct {
-		reg32 pc;
-		union gpr gpr;
-		reg lo, hi, barrelshift;
-		u8* ram, *regs, *scratch, *bios;
-		union cop0 cop0;
-		struct cop1 cop1;
-	} ee;
+struct mips {
+	reg32 pc, _pc_latch;
+	union gpr gpr;
+	bool _in_branch_delay;
 
-	struct {
-		reg32 pc;
-		union gpr gpr;
-		reg32 lo, hi;
-		union cop0 cop0;
-		u8  *ram, *scratch, *bios, *regs;
-	}iop;
+	reg lo, hi, barrelshift;
+	u8* ram, *regs, *scratch, *bios;
+	union cop0 cop0;
+	struct cop1 cop1;
+};
+
+struct ps2{
+	struct mips ee;
+	struct mips iop;
 
 	struct{
 		reg vf[32];
-		reg acc;
+		u16 vi[16];
+		reg accx,accy,accz,accw;
 		f32 q,p;
 		u32 mac;
 		u32 clip;
 		u32 status;
-		u16 vi[16];
 		u8 *code, *data;
 	}vu0, vu1;
 
@@ -326,6 +323,8 @@ struct ps2{
 
 };
 
-//
+extern struct ps2 ps2;
 
-void disasm(reg32 opcode, reg32 pc, char* dest);
+void disasm(u32 opcode, u32 pc, char* dest);
+
+void step(int instrs);

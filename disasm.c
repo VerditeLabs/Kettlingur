@@ -747,7 +747,10 @@ static void dis_COP2(reg32 opcode, reg32 pc, char *dest){}
 #define null() case (__COUNTER__-baseval): invalid(opcode, pc, dest); break;
 
 
-void disasm(reg32 opcode, reg32 pc, char* dest) {
+void disasm(u32 instr, u32 pc_, char* dest) {
+	reg32 opcode, pc;
+	opcode._u32[0] = instr;
+	pc._u32[0] = pc_;
 	static const int baseval = __COUNTER__ + 1;
 
 	switch (opcode._u32[0] >> 26) {
