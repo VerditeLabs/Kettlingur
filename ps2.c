@@ -504,7 +504,7 @@ static overload u32 satsub(u32 a, u32 b){
 }
 
 
-static overload s32 abs(s32 val) {
+static overload s32 satabs(s32 val) {
 	if(val == 0x80000000) {
 		return 0x7fffffff;
 	}
@@ -515,7 +515,7 @@ static overload s32 abs(s32 val) {
 }
 
 
-static overload s16 abs(s16 val) {
+static overload s16 satabs(s16 val) {
 	if(val == 0x8000) {
 		return 0x7fff;
 	}
@@ -834,7 +834,7 @@ static char* regtostr(u32 addr) {
 }
 
 
-static void *readwrite(u32 addr) {
+static void *readwrite(struct ps2* ps2, u32 addr) {
 	void *host = NULL;
 	u32 virtaddr = addr;
 	if (addr >= 0x80000000 && addr < 0xa0000000) {
@@ -847,24 +847,24 @@ static void *readwrite(u32 addr) {
 		die("addr > 0xe0000000");
 	}
 	if (addr >= EE_RAM_START && addr < EE_RAM_END) {
-		host = &ps2.ee.ram[addr - EE_RAM_START];
+		host = &ps2->ee.ram[addr - EE_RAM_START];
 	} else if (addr >= EE_RAM_UNCACHED_START && addr < EE_RAM_UNCACHED_END) {
-		host = &ps2.ee.ram[addr - EE_RAM_UNCACHED_START];
+		host = &ps2->ee.ram[addr - EE_RAM_UNCACHED_START];
 	} else if (addr >= EE_RAM_ACCELERATED_START && addr < EE_RAM_ACCELERATED_END) {
-		host = &ps2.ee.ram[addr - EE_RAM_ACCELERATED_START];
+		host = &ps2->ee.ram[addr - EE_RAM_ACCELERATED_START];
 	} else if (addr >= EE_REGS_START && addr < EE_REGS_END) {
 		printf("%s\n",regtostr(addr));
-		host = &ps2.ee.regs[addr - EE_REGS_START];
+		host = &ps2->ee.regs[addr - EE_REGS_START];
 	} else if (addr >= VU_REGS_START && addr < VU_REGS_END) {
 		return 0;
 	} else if (addr >= GS_REGS_START && addr < GS_REGS_END) {
 		return 0;
 	} else if (addr >= BIOS_START && addr < BIOS_END) {
-		host = &ps2.ee.bios[addr - BIOS_START];
+		host = &ps2->ee.bios[addr - BIOS_START];
 	} else if (addr >= EE_SCRATCHPAD_START && addr < EE_SCRATCHPAD_END) {
-		host = &ps2.ee.scratch[addr - EE_SCRATCHPAD_START];
+		host = &ps2->ee.scratch[addr - EE_SCRATCHPAD_START];
 	} else if (addr >= EE_IOP_RAM_START && addr < EE_IOP_RAM_END) {
-		host = &ps2.iop.ram[addr - EE_IOP_RAM_START];
+		host = &ps2->iop.ram[addr - EE_IOP_RAM_START];
 	} else {
 		die("unhandled addr virt %08x phys %08x",virtaddr,addr);
 	}
@@ -875,52 +875,54 @@ static void *readwrite(u32 addr) {
 
 static void exception() {}
 
-static u8 memread8(u32 addr) {
-	u8* a = readwrite(addr);
+static u8 memread8(struct ps2* ps2, u32 addr) {
+	u8* a = readwrite(ps2,addr);
 	return *a ;
 }
 
-static u16 memread16(u32 addr) {
-	u16* a = readwrite(addr);
+static u16 memread16(struct ps2* ps2, u32 addr) {
+	u16* a = readwrite(ps2,addr);
 	return *a;
 }
 
-u32 memread32(u32 addr) {
-	u32* a = readwrite(addr);
+u32 memread32(struct ps2* ps2, u32 addr) {
+	u32* a = readwrite(ps2,addr);
 	return *a;
 }
 
-static u64 memread64(u32 addr) {
-	u64* a = readwrite(addr);
+static u64 memread64(struct ps2* ps2, u32 addr) {
+	u64* a = readwrite(ps2,addr);
 	return *a;
 }
 
-static u128 memread128(u32 addr) {
-	return *(u128 *) readwrite(addr);
+static u128 memread128(struct ps2* ps2, u32 addr) {
+	u128 *a = readwrite(ps2,addr);
+	return *a;
 }
 
-static void memwrite8(u32 addr, u8 data) {
-	u8* a = readwrite(addr);
+static void memwrite8(struct ps2* ps2, u32 addr, u8 data) {
+	u8* a = readwrite(ps2,addr);
 	*a = data;
 }
 
-static void memwrite16(u32 addr, u16 data) {
-	u16* a = readwrite(addr);
+static void memwrite16(struct ps2* ps2, u32 addr, u16 data) {
+	u16* a = readwrite(ps2,addr);
 	*a = data;
 }
 
-static void memwrite32(u32 addr, u32 data) {
-	u32* a = readwrite(addr);
+static void memwrite32(struct ps2* ps2, u32 addr, u32 data) {
+	u32* a = readwrite(ps2,addr);
 	*a = data;
 }
 
-static void memwrite64(u32 addr, u64 data) {
-	u64* a = readwrite(addr);
+static void memwrite64(struct ps2* ps2, u32 addr, u64 data) {
+	u64* a = readwrite(ps2,addr);
 	*a = data;
 }
 
-static void memwrite128(u32 addr, u64 data) {
-	*(u128 *) readwrite(addr) = data;
+static void memwrite128(struct ps2* ps2, u32 addr, u64 data) {
+	u128 * a = readwrite(ps2,addr);
+	*a = data;
 }
 
 //shamelessly stolen from pcsx2
@@ -940,7 +942,7 @@ static const u8 LWR_SHIFT[4] = { 0, 8, 16, 24 };
 static const u8 LDR_SHIFT[8] = { 0, 8, 16, 24, 32, 40, 48, 56 };
 static const u8 LDL_SHIFT[8] = { 56, 48, 40, 32, 24, 16, 8, 0 };
 
-void decode(struct ps2* ps2, u32 opcode, bool isps2, bool interpret, bool disasm) {
+void interpret(struct ps2* ps2, u32 opcode, bool isps2, bool disasm) {
 	char dest [1024];
 	struct mips* mips = isps2 ? &ps2->ee : &ps2->iop;
 	s32 ress32;
@@ -1102,6 +1104,7 @@ void decode(struct ps2* ps2, u32 opcode, bool isps2, bool interpret, bool disasm
 			case 61: /*illegal*/ illegal(); break;
 			case 62: /*dsrl32*/  rd64u = rt64u >> sa+32; dis_rd_rt_sa("dsrl32"); break;
 			case 63: /*dsra32*/ rd64s = rt64s >> sa+32; dis_rd_rt_sa("dsra32"); break;
+			default: illegal(); break;
 		} break;
 		case 1: switch(rt) {
 			/*regimm*/
@@ -1116,27 +1119,28 @@ void decode(struct ps2* ps2, u32 opcode, bool isps2, bool interpret, bool disasm
 			case 8: /*tgei*/ if(rs64s > simm16) exception(EXCCODE_TRAP); dis_("tgei"); break;
 			case 9: /*tgeiu*/ if(rs64u > uimm16) exception(EXCCODE_TRAP);dis_("tgeiu"); break;
 			case 10: /*tlti*/ if(rs64s < simm16) exception(EXCCODE_TRAP);dis_("tlti"); break;
-			case 11: /*tltiu*/ if(rs64u < uimm16) exception(EXCCODE_TRAP);break;
-			case 12: /*teqi*/ if(rs64s == simm16) exception(EXCCODE_TRAP);break;
-			case 13: /*illegal*/ break;
-			case 14: /*tnei*/ if(rs64s != simm16) exception(EXCCODE_TRAP);break;
-			case 15: /*illegal*/ break;
+			case 11: /*tltiu*/ if(rs64u < uimm16) exception(EXCCODE_TRAP); dis_("tltiu"); break;
+			case 12: /*teqi*/ if(rs64s == simm16) exception(EXCCODE_TRAP); dis_("teqi"); break;
+			case 13: /*illegal*/ illegal(); break;
+			case 14: /*tnei*/ if(rs64s != simm16) exception(EXCCODE_TRAP); dis_("tnei"); break;
+			case 15: /*illegal*/ illegal(); break;
 			case 16: /*bltzal*/ ra64s = pc32s + 8; if(rs64s < 0){ branch(branchtarget);} dis_rs_offset("bltzal");break;
 			case 17: /*bgezal*/ ra64s = pc32s + 8; if(rs64s >= 0){ branch(branchtarget);} dis_rs_offset("bezal");break;
 			case 18: /*bltzall*/ ra64s = pc32s + 8; if(rs64s < 0){ branch(branchtarget);}else{pc32s+=4;} dis_rs_offset("bltzall");break;
 			case 19: /*bgezall*/ ra64s = pc32s + 8; if(rs64s >= 0){ branch(branchtarget);}else{pc32s+=4;} dis_rs_offset("bgezall");break;
-			case 20: /*illegal*/ break;
-			case 21: /*illegal*/ break;
-			case 22: /*illegal*/ break;
-			case 23: /*illegal*/ break;
+			case 20: /*illegal*/ illegal(); break;
+			case 21: /*illegal*/ illegal(); break;
+			case 22: /*illegal*/ illegal(); break;
+			case 23: /*illegal*/ illegal(); break;
 			case 24: /*mtsab*/ mips->barrelshift._u32[0] = ((rs32u ^ uimm16)&0xf)*8; dis_("mtsab"); break;
 			case 25: /*mtsah*/ mips->barrelshift._u32[0] = ((rs32u ^ uimm16)&0x7)*16; dis_("mtsah"); break;
-			case 26: /*illegal*/ break;
-			case 27: /*illegal*/ break;
-			case 28: /*illegal*/ break;
-			case 29: /*illegal*/ break;
-			case 30: /*illegal*/ break;
-			case 31: /*illegal*/ break;
+			case 26: /*illegal*/ illegal(); break;
+			case 27: /*illegal*/ illegal(); break;
+			case 28: /*illegal*/ illegal(); break;
+			case 29: /*illegal*/ illegal(); break;
+			case 30: /*illegal*/ illegal(); break;
+			case 31: /*illegal*/ illegal(); break;
+			default: illegal(); break;
 		} break;
 		case 2: /*j*/ branch(jumptarget); dis_jump("j"); break;
 		case 3: /*jal*/ ra64s = pc32s + 8; branch(jumptarget); dis_jump("jal"); break;
@@ -1168,6 +1172,7 @@ void decode(struct ps2* ps2, u32 opcode, bool isps2, bool interpret, bool disasm
 				case 1: /*bc0t*/ dis_("bc0t"); break;
 				case 2: /*bc0fl*/ dis_("bc0fl"); break;
 				case 3: /*bc0tl*/ dis_("bc0tl"); break;
+				default: illegal(); break;
 			} break;
 			case 16: switch(funct6) {
 				/*c0*/
@@ -1178,269 +1183,276 @@ void decode(struct ps2* ps2, u32 opcode, bool isps2, bool interpret, bool disasm
 				case 24: /*eret*/ dis_("eret"); break;
 				case 58: /*ei*/ dis_("ei"); break;
 				case 59: /*di*/ dis_("di"); break;
+				default: illegal(); break;
 			} break;
+			default: illegal(); break;
 		} break;
 		case 17: switch(rs) {
 			/*cop1*/
-			case 0: /*mfc1*/ break;
-			case 2: /*cfc1*/ break;
-			case 4: /*mtc1*/ break;
-			case 6: /*ctc1*/ break;
+			case 0: /*mfc1*/ dis_("mfc1"); break;
+			case 2: /*cfc1*/ dis_("cfc1"); break;
+			case 4: /*mtc1*/ dis_("mtc1"); break;
+			case 6: /*ctc1*/ dis_("ctc1"); break;
 			case 8: switch(rt) {
 				/*bc1*/
-				case 0: /*bc1f*/ break;
-				case 1: /*bc1t*/ break;
-				case 2: /*bc1fl*/ break;
-				case 3: /*bc1tl*/ break;
-				default: /*illegal*/ break;
+				case 0: /*bc1f*/ dis_("bc1f"); break;
+				case 1: /*bc1t*/ dis_("bc1t"); break;
+				case 2: /*bc1fl*/ dis_("bc1fl"); break;
+				case 3: /*bc1tl*/ dis_("bc1tl"); break;
+				default: /*illegal*/ illegal(); break;
 			} break;
 			case 16: switch(funct6) {
 				/*S*/
-				case 0: /*add*/ break;
-				case 1: /*sub*/ break;
-				case 2: /*mul*/ break;
-				case 3: /*div*/ break;
-				case 4: /*sqrt*/ break;
-				case 5: /*abs*/ break;
-				case 6: /*mov*/ break;
-				case 7: /*neg*/ break;
-				case 22: /*rsqrt*/ break;
-				case 24: /*adda*/ break;
-				case 25: /*suba*/ break;
-				case 26: /*mula*/ break;
-				case 27: /*illegal*/ break;
-				case 28: /*madd*/ break;
-				case 29: /*msub*/ break;
-				case 30: /*madda*/ break;
-				case 31: /*msuba*/ break;
-				case 36: /*cvtw*/ break;
-				case 40: /*max*/ break;
-				case 41: /*min*/ break;
-				case 48: /*c.f*/ break;
-				case 50: /*c.eq*/ break;
-				case 52: /*c.lt*/ break;
-				case 54: /*c.le*/ break;
-				default: /*illegal*/ break;
+				case 0: /*add*/ dis_("add.s"); break;
+				case 1: /*sub*/ dis_("sub.s"); break;
+				case 2: /*mul*/ dis_("mul.s"); break;
+				case 3: /*div*/ dis_("div.s"); break;
+				case 4: /*sqrt*/ dis_("sqrt.s"); break;
+				case 5: /*abs*/ dis_("abs.s"); break;
+				case 6: /*mov*/ dis_("mov.s"); break;
+				case 7: /*neg*/ dis_("neg.s"); break;
+				case 22: /*rsqrt*/ dis_("rsqrt.s"); break;
+				case 24: /*adda*/ dis_("adda.s"); break;
+				case 25: /*suba*/ dis_("suba.s"); break;
+				case 26: /*mula*/ dis_("mula.s"); break;
+				case 27: /*illegal*/ illegal(); break;
+				case 28: /*madd*/ dis_("madd.s"); break;
+				case 29: /*msub*/ dis_("msub.s"); break;
+				case 30: /*madda*/ dis_("madda.s"); break;
+				case 31: /*msuba*/ dis_("msuba.s"); break;
+				case 36: /*cvtw*/ dis_("cvtw"); break;
+				case 40: /*max*/ dis_("max.s"); break;
+				case 41: /*min*/ dis_("min.s"); break;
+				case 48: /*c.f*/ dis_("c.f.s"); break;
+				case 50: /*c.eq*/ dis_("c.eq.s"); break;
+				case 52: /*c.lt*/ dis_("d.lt.s"); break;
+				case 54: /*c.le*/ dis_("c.le.s"); break;
+				default: /*illegal*/ illegal(); break;
 			} break;
 			case 20: switch(funct6) {
 				/*W*/
-				case 32: /*cvts*/ break;
-				default: /*illegal*/ break;
+				case 32: /*cvts*/ dis_("cvts"); break;
+				default: /*illegal*/ illegal(); break;
 			} break;
-			default: /*illegal*/ break;
+			default: /*illegal*/ illegal(); break;
 		} break;
 		case 18: switch(rs) {
 			/*cop2*/
-			default: /*illegal*/ break;
+			default: /*illegal*/ dis_("cop2"); break;
 		} break;
-		case 19: /*illegal*/ break;
+		case 19: /*illegal*/ illegal(); break;
 		case 20: /*beql*/ if(rs64s == rt64s) {branch(branchtarget);} else {pc32s +=4;} dis_rs_rt_offset("beql"); break;
 		case 21: /*bnel*/ if(rs64s != rt64s) {branch(branchtarget);} else {pc32s += 4;} dis_rs_rt_offset("bnel"); break;
 		case 22: /*blezl*/ if(rs64s <= 0) {branch(branchtarget);} else {pc32s+=4;} dis_rs_offset("blezl"); break;
 		case 23: /*bgtzl*/ if(rs64s > 0) {branch(branchtarget);} else {pc32s+=4;} dis_rs_offset("bgtzl"); break;
 		case 24: /*daddi*/ if (__builtin_add_overflow(rs64s, simm16, &ress64)) {exception(EXCCODE_OVERFLOW);}else{rd64s = ress64;} dis_rd_rs_rt("daddi"); break;
 		case 25: /*daddiu*/ if (!__builtin_add_overflow(rs64s, simm16, &ress64)) {rd64s = ress64;} dis_rd_rs_rt("daddiu"); break;
-		case 26: /*ldl*/ break;
-		case 27: /*ldr*/ break;
+		case 26: /*ldl*/ dis_("ldl"); break;
+		case 27: /*ldr*/ dis_("ldr");break;
 		case 28: switch(funct6) {
-			case 0: /*madd*/ break;
-			case 1: /*maddu*/ break;
-			case 4: /*plzcw*/ break;
+			case 0: /*madd*/ dis_rd_rs_rt("madd"); break;
+			case 1: /*maddu*/ dis_rd_rs_rt("maddu"); break;
+			case 4: /*plzcw*/ dis_rd_rs("plzcw"); break;
 			case 8: switch(sa) {
 				/*mmi0*/
-				case 0: /*paddw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) + rti(s32,i); break;
-				case 1: /*psubw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) - rti(s32,i); break;
-				case 2: /*pcgtw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) > rti(s32,i) ? -1 : 0; break;
-				case 3: /*pmaxw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) > rti(s32,i) ? rsi(s32,i) : rti(s32,i); break;
-				case 4: /*paddh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) + rti(s16,i); break;
-				case 5: /*psubh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) - rti(s16,i); break;
-				case 6: /*pcgth*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) > rti(s16,i) ? -1 : 0; break;
-				case 7: /*pmaxh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) > rti(s16,i) ? rsi(s16,i) : rti(s16,i); break;
-				case 8: /*paddb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = rsi(s8,i) + rti(s8,i); break;
-				case 9: /*psubb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = rsi(s8,i) - rti(s8,i); break;
-				case 10: /*pcgtb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = rsi(s8,i) > rti(s8,i) ? -1 : 0; break;
-				case 11: /*illegal*/ break;
-				case 12: /*illegal*/ break;
-				case 13: /*illegal*/ break;
-				case 14: /*illegal*/ break;
-				case 15: /*illegal*/ break;
-				case 16: /*paddsw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = satadd(rsi(s32,i), rti(s32,i)); break;
-				case 17: /*psubsw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = satsub(rsi(s32,i), rti(s32,i)); break;
-				case 18: /*pextlw*/ for(int i = 0; i < 4; i+=2){rdi(s32,i) = rti(s32,i/2); rdi(s32,i+1) = rsi(s32,i);} break;
-				case 19: /*ppacw*/ rdi(s32,0) = rti(s32,0); rdi(s32,1) = rti(s32,2); rdi(s32,2) = rsi(s32,0); rdi(s32,3) = rsi(s32,2);break;
-				case 20: /*paddsh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = satadd(rsi(s16,i), rti(s16,i));break;
-				case 21: /*psubush*/ for(int i = 0; i < 8; i++) rdi(s16,i) = satsub(rsi(s16,i), rti(s16,i));break;
-				case 22: /*pextlh*/ for(int i = 0; i < 8; i+=2){rdi(s16,i) = rti(s16,i/2); rdi(s16,i+1) = rsi(s16,i);} break;
-				case 23: /*ppach*/ break;
-				case 24: /*paddsb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = satadd(rsi(s8,i), rti(s8,i)); break;
-				case 25: /*psubsb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = satsub(rsi(s8,i), rti(s8,i));break;
-				case 26: /*pextlb*/ break;
-				case 27: /*ppacb*/ break;
-				case 28: /*illegal*/ break;
-				case 29: /*illegal*/ break;
-				case 30: /*pext5*/ break;
-				case 31: /*ppac5*/ break;
+				case 0: /*paddw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) + rti(s32,i); dis_rd_rs_rt("paddw"); break;
+				case 1: /*psubw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) - rti(s32,i); dis_rd_rs_rt("psubw"); break;
+				case 2: /*pcgtw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) > rti(s32,i) ? -1 : 0; dis_rd_rs_rt("pcgtw"); break;
+				case 3: /*pmaxw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) > rti(s32,i) ? rsi(s32,i) : rti(s32,i); dis_rd_rs_rt("pmaxw"); break;
+				case 4: /*paddh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) + rti(s16,i); dis_rd_rs_rt("paddh"); break;
+				case 5: /*psubh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) - rti(s16,i); dis_rd_rs_rt("psubh"); break;
+				case 6: /*pcgth*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) > rti(s16,i) ? -1 : 0; dis_rd_rs_rt("pcgth"); break;
+				case 7: /*pmaxh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) > rti(s16,i) ? rsi(s16,i) : rti(s16,i); dis_rd_rs_rt("pmaxh"); break;
+				case 8: /*paddb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = rsi(s8,i) + rti(s8,i); dis_rd_rs_rt("paddb"); break;
+				case 9: /*psubb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = rsi(s8,i) - rti(s8,i); dis_rd_rs_rt("psubb"); break;
+				case 10: /*pcgtb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = rsi(s8,i) > rti(s8,i) ? -1 : 0; dis_rd_rs_rt("pcgtb"); break;
+				case 11: /*illegal*/ illegal(); break;
+				case 12: /*illegal*/ illegal(); break;
+				case 13: /*illegal*/ illegal(); break;
+				case 14: /*illegal*/ illegal(); break;
+				case 15: /*illegal*/ illegal(); break;
+				case 16: /*paddsw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = satadd(rsi(s32,i), rti(s32,i)); dis_rd_rs_rt("paddsw"); break;
+				case 17: /*psubsw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = satsub(rsi(s32,i), rti(s32,i)); dis_rd_rs_rt("psubsw"); break;
+				case 18: /*pextlw*/ for(int i = 0; i < 4; i+=2){rdi(s32,i) = rti(s32,i/2); rdi(s32,i+1) = rsi(s32,i);} dis_rd_rs_rt("pextlw"); break;
+				case 19: /*ppacw*/ rdi(s32,0) = rti(s32,0); rdi(s32,1) = rti(s32,2); rdi(s32,2) = rsi(s32,0); rdi(s32,3) = rsi(s32,2); dis_rd_rs_rt("ppacw"); break;
+				case 20: /*paddsh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = satadd(rsi(s16,i), rti(s16,i)); dis_rd_rs_rt("paddsh"); break;
+				case 21: /*psubsh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = satsub(rsi(s16,i), rti(s16,i)); dis_rd_rs_rt("psubh"); break;
+				case 22: /*pextlh*/ for(int i = 0; i < 8; i+=2){rdi(s16,i) = rti(s16,i/2); rdi(s16,i+1) = rsi(s16,i);} dis_rd_rs_rt("pextlh"); break;
+				case 23: /*ppach*/ dis_rd_rs_rt("ppach"); break;
+				case 24: /*paddsb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = satadd(rsi(s8,i), rti(s8,i)); dis_rd_rs_rt("paddsb"); break;
+				case 25: /*psubsb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = satsub(rsi(s8,i), rti(s8,i)); dis_rd_rs_rt("psubsb"); break;
+				case 26: /*pextlb*/ dis_rd_rs_rt("pextlb"); break;
+				case 27: /*ppacb*/ dis_rd_rs_rt("ppacb"); break;
+				case 28: /*illegal*/ illegal(); break;
+				case 29: /*illegal*/ illegal(); break;
+				case 30: /*pext5*/ dis_rd_rs_rt("pext5"); break;
+				case 31: /*ppac5*/ dis_rd_rs_rt("ppac5"); break;
+				default: illegal(); break;
 			} break;
 			case 9: switch(sa) {
 				/*mmi2*/
-				case 0: /*pmaddw*/ break;
+				case 0: /*pmaddw*/ dis_rd_rs_rt("pmaddw"); break;
 				case 1: /*illegal*/ break;
-				case 2: /*psllvw*/ rdi(s64,0) = (s64)rti(s32,0) << rsi(s32,0)&0x1f; rdi(s64,1) = (s64)rti(s32,2) << rsi(s32,2)&0x1f; break;
-				case 3: /*psrlvw*/ rdi(s64,0) = (s64)(rti(u32,0) >> rsi(s32,0)&0x1f); rdi(s64,1) = (s64)(rti(u32,2) >> rsi(s32,2)&0x1f); break;
-				case 4: /*pmsubw*/ break;
+				case 2: /*psllvw*/ rdi(s64,0) = (s64)rti(s32,0) << rsi(s32,0)&0x1f; rdi(s64,1) = (s64)rti(s32,2) << rsi(s32,2)&0x1f; dis_rd_rs_rt("psllvw"); break;
+				case 3: /*psrlvw*/ rdi(s64,0) = (s64)(rti(u32,0) >> rsi(s32,0)&0x1f); rdi(s64,1) = (s64)(rti(u32,2) >> rsi(s32,2)&0x1f); dis_rd_rs_rt("psrlvw"); break;
+				case 4: /*pmsubw*/ dis_rd_rs_rt("pmsubw"); break;
 				case 5: /*illegal*/ break;
 				case 6: /*illegal*/ break;
 				case 7: /*illegal*/ break;
-				case 8: /*pmfhi*/ rd128s = hi128s; break;
-				case 9: /*pmflo*/ rd128s = lo128s; break;
-				case 10: /*pinth*/ for(int i = 0; i < 8; i+=2){rdi(s16,i) = rti(s16,i/2); rdi(s16,i+1) = rsi(s16, i/2+4);}break;
+				case 8: /*pmfhi*/ rd128s = hi128s; dis_rd_rs_rt("pmfhi"); break;
+				case 9: /*pmflo*/ rd128s = lo128s; dis_rd_rs_rt("pmflo"); break;
+				case 10: /*pinth*/ for(int i = 0; i < 8; i+=2){rdi(s16,i) = rti(s16,i/2); rdi(s16,i+1) = rsi(s16, i/2+4);} dis_rd_rs_rt("pinth"); break;
 				case 11: /*illegal*/ break;
-				case 12: /*pmultw*/ rdi(s64,0) = (s64)rsi(s32,0) * (s64)rdi(s32,0); loi(s64,0) = rdi(s32,0); hii(s64,0) = rdi(s32,1); rdi(s64,1) = (s64)rsi(s32,2) * (s64)rdi(s32,2); loi(s64,1) = rdi(s32,2); hii(s64,1) = rdi(s32,3);break;
-				case 13: /*pdivw*/ loi(s64,0) = rsi(s32,0)/rti(s32,0); hii(s64,0) = rsi(s32,0)%rti(s32,0); loi(s64,1) = rsi(s32,2)/rti(s32,2); hii(s64,1) = rsi(s32,2)%rti(s32,2); break;
-				case 14: /*pcpyld*/ rdi(s64,0) = rti(s64,0); rdi(s64,1) = rsi(s64,0); break;
+				case 12: /*pmultw*/ rdi(s64,0) = (s64)rsi(s32,0) * (s64)rdi(s32,0); loi(s64,0) = rdi(s32,0); hii(s64,0) = rdi(s32,1); rdi(s64,1) = (s64)rsi(s32,2) * (s64)rdi(s32,2); loi(s64,1) = rdi(s32,2); hii(s64,1) = rdi(s32,3);dis_rd_rs_rt("pmultw"); break;
+				case 13: /*pdivw*/ loi(s64,0) = rsi(s32,0)/rti(s32,0); hii(s64,0) = rsi(s32,0)%rti(s32,0); loi(s64,1) = rsi(s32,2)/rti(s32,2); hii(s64,1) = rsi(s32,2)%rti(s32,2); dis_rd_rs_rt("pdivw"); break;
+				case 14: /*pcpyld*/ rdi(s64,0) = rti(s64,0); rdi(s64,1) = rsi(s64,0); dis_rd_rs_rt("pcpyld"); break;
 				case 15: /*illegal*/ break;
-				case 16: /*pmaddh*/ break;
-				case 17: /*phmadh*/ break;
-				case 18: /*pand*/ rd128s = rs128s & rt128s; break;
-				case 19: /*pxor*/ rd128s = rs128s ^ rt128s; break;
-				case 20: /*pmsubh*/ break;
-				case 21: /*phmsbh*/ break;
+				case 16: /*pmaddh*/ dis_rd_rs_rt("pmaddh"); break;
+				case 17: /*phmadh*/ dis_rd_rs_rt("phmadh"); break;
+				case 18: /*pand*/ rd128s = rs128s & rt128s; dis_rd_rs_rt("pand"); break;
+				case 19: /*pxor*/ rd128s = rs128s ^ rt128s; dis_rd_rs_rt("por"); break;
+				case 20: /*pmsubh*/ dis_rd_rs_rt("pmsubh"); break;
+				case 21: /*phmsbh*/ dis_rd_rs_rt("phmsbh"); break;
 				case 22: /*illegal*/ break;
 				case 23: /*illegal*/ break;
 				case 24: /*illegal*/ break;
 				case 25: /*illegal*/ break;
-				case 26: /*pexeh*/ rdi(s16,0) = rti(s16,2); rdi(s16,1) = rti(s16,1); rdi(s16,2) = rti(s16,0); rdi(s16,3) = rti(s16,3); rdi(s16,4) = rti(s16,6); rdi(s16,5) = rti(s16,5); rdi(s16,6) = rti(s16,4); rdi(s16,7) = rti(s16,7);break;
-				case 27: /*prevh*/ rdi(s16,0) = rti(s16,3); rdi(s16,1) = rti(s16,2); rdi(s16,2) = rti(s16,1); rdi(s16,3) = rti(s16,0); rdi(s16,4) = rti(s16,7); rdi(s16,5) = rti(s16,6); rdi(s16,6) = rti(s16,5); rdi(s16,7) = rti(s16,4);break;
-				case 28: /*pmulth*/ break;
-				case 29: /*pdivbw*/ break;
-				case 30: /*pexeq*/ break;
-				case 31: /*prot3w*/ break;
+				case 26: /*pexeh*/ rdi(s16,0) = rti(s16,2); rdi(s16,1) = rti(s16,1); rdi(s16,2) = rti(s16,0); rdi(s16,3) = rti(s16,3); rdi(s16,4) = rti(s16,6); rdi(s16,5) = rti(s16,5); rdi(s16,6) = rti(s16,4); rdi(s16,7) = rti(s16,7); dis_rd_rs_rt("pexeh"); break;
+				case 27: /*prevh*/ rdi(s16,0) = rti(s16,3); rdi(s16,1) = rti(s16,2); rdi(s16,2) = rti(s16,1); rdi(s16,3) = rti(s16,0); rdi(s16,4) = rti(s16,7); rdi(s16,5) = rti(s16,6); rdi(s16,6) = rti(s16,5); rdi(s16,7) = rti(s16,4);dis_rd_rs_rt("prevh"); break;
+				case 28: /*pmulth*/ dis_rd_rs_rt("pmulth"); break;
+				case 29: /*pdivbw*/ dis_rd_rs_rt("pdivbw"); break;
+				case 30: /*pexeq*/ dis_rd_rs_rt("pexeq"); break;
+				case 31: /*prot3w*/ dis_rd_rs_rt("prot3w"); break;
+				default: illegal(); break;
 			} break;
-			case 16:/*mfhi1*/ rd64u = hii(u64,1); break;
-			case 17:/*mthi1*/ hii(u64,1) = rsi(u64,0); break;
-			case 18:/*mflo1*/ rd64u = loi(u64,1); break;
-			case 19:/*mtlo1*/ loi(u64,1) = rsi(u64,0); break;
+			case 16:/*mfhi1*/ rd64u = hii(u64,1); dis_rd("mfhi1"); break;
+			case 17:/*mthi1*/ hii(u64,1) = rsi(u64,0); dis_rs("mthi1"); break;
+			case 18:/*mflo1*/ rd64u = loi(u64,1); dis_rd("mflo1"); break;
+			case 19:/*mtlo1*/ loi(u64,1) = rsi(u64,0); dis_rs("mtlo"); break;
 			case 24:/*mult1*/ loi(s64,1) = (s32)((s64)rs32s * (s64)rt32s); hii(s64,1) = (s32)(((s64)rs32s * (s64)rt32s)>>32); rd64s = loi(s64,1); dis_rs_rt("mult1"); break;
 			case 25:/*multu1*/ loi(s64,1) = (s32)((u64)rs32u * (u64)rt32u); hii(s64,1) = (s32)(((u64)rs32u * (u64)rt32u)>>32); rd64s = loi(s64,1); dis_rs_rt("multu1"); break;
 			case 26:/*div1*/ loi(s64,1) = rs32s / rt32s; hii(s64,1) = rs32s % rt32s; dis_rs_rt("div1"); break;
 			case 27:/*divu1*/ loi(s64,1) = rs32u / rt32u; hii(s64,1) = rs32u % rt32u; dis_rs_rt("divu1madd"); break;
-			case 32:/*madd1*/ break;
-			case 33:/*maddu1*/ break;
+			case 32:/*madd1*/ dis_rd_rs_rt("madd1"); break;
+			case 33:/*maddu1*/ dis_rd_rs_rt("maddu1"); break;
 			case 40: switch(sa) {
 				/*mmi1*/
-				case 0: /*illegal*/ break;
-				case 1: /*pabsw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = abs(rti(s32,i)); break;
-				case 2: /*pceqw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) == rti(s32,i) ? 0xffffffff : 0; break;
-				case 3: /*pminw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) < rti(s32,i) ? rsi(s32,i) : rti(s32,i); break;
-				case 4: /*padsbh*/ for(int i = 0; i < 4; i++) {rdi(s16,i) = rsi(s16,i) - rti(s16,i); rdi(s16,i+4) = rsi(s16,i+4) + rti(s16,i+4);}break;
-				case 5: /*pabsh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = abs(rti(s16,i)); break;
-				case 6: /*pceqh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) == rti(s16,i) ? 0xffff : 0; break;
-				case 7: /*pminh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) < rti(s16,i) ? rsi(s16,i) : rti(s16,i); break;
-				case 8: /*illegal*/ break;
-				case 9: /*illegal*/ break;
-				case 10: /*pceqb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = rsi(s8,i) == rti(s8,i) ? 0xff : 0;break;
-				case 11: /*illegal*/ break;
-				case 12: /*illegal*/ break;
-				case 13: /*illegal*/ break;
-				case 14: /*illegal*/ break;
-				case 15: /*illegal*/ break;
-				case 16: /*padduw*/ for(int i = 0; i< 4; i++)rdi(u32,i) = satadd(rsi(u32,i),rti(u32,i)); break;
-				case 17: /*psubuw*/ for(int i = 0; i< 4; i++)rdi(u32,i) = satsub(rsi(u32,i),rti(u32,i));break;
-				case 18: /*pextuw*/ rdi(s32,0) = rti(s32,2); rdi(s32,1) = rsi(s32,2); rdi(s32,2) = rti(s32,3); rdi(s32,3) = rsi(s32,3); break;
-				case 19: /*illegal*/ break;
-				case 20: /*padduh*/ for(int i = 0; i< 8; i++)rdi(u16,i) = satadd(rsi(u16,i),rti(u16,i)); break;
-				case 21: /*psubuh*/ for(int i = 0; i< 8; i++)rdi(u16,i) = satsub(rsi(u16,i),rti(u16,i)); break;
-				case 22: /*pextuh*/ for(int i = 0; i < 8; i+=2){rdi(s16,i) = rti(s16,i/2+4); rdi(s16,i+1) = rsi(s16,i/2+4);}break;
-				case 23: /*illegal*/ break;
-				case 24: /*paddub*/ for(int i = 0; i< 16; i++)rdi(u8,i) = satadd(rsi(u8,i),rti(u8,i)); break;
-				case 25: /*psubub*/ for(int i = 0; i< 16; i++)rdi(u8,i) = satsub(rsi(u8,i),rti(u8,i));break;
-				case 26: /*pextub*/ for(int i = 0; i < 16; i+=2){rdi(s8,i) = rti(s8,i/2+8); rdi(s16,i+1) = rsi(s8,i/2+8);}break;
-				case 27: /*qfsrv*/ break;
-				case 28: /*illegal*/ break;
-				case 29: /*illegal*/ break;
-				case 30: /*illegal*/ break;
-				case 31: /*illegal*/ break;
+				case 0: /*illegal*/ illegal(); break;
+				case 1: /*pabsw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = satabs(rti(s32,i)); dis_rd_rt("pabsw"); break;
+				case 2: /*pceqw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) == rti(s32,i) ? 0xffffffff : 0; dis_rd_rs_rt("pceqw"); break;
+				case 3: /*pminw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rsi(s32,i) < rti(s32,i) ? rsi(s32,i) : rti(s32,i); dis_rd_rs_rt("pminw"); break;
+				case 4: /*padsbh*/ for(int i = 0; i < 4; i++) {rdi(s16,i) = rsi(s16,i) - rti(s16,i); rdi(s16,i+4) = rsi(s16,i+4) + rti(s16,i+4);}dis_rd_rs_rt("padsbh"); break;
+				case 5: /*pabsh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = satabs(rti(s16,i)); dis_rd_rs_rt("pabsh"); break;
+				case 6: /*pceqh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) == rti(s16,i) ? 0xffff : 0; dis_rd_rs_rt("pceqh"); break;
+				case 7: /*pminh*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rsi(s16,i) < rti(s16,i) ? rsi(s16,i) : rti(s16,i); dis_rd_rs_rt("pminh"); break;
+				case 8: /*illegal*/ illegal(); break;
+				case 9: /*illegal*/ illegal(); break;
+				case 10: /*pceqb*/ for(int i = 0; i < 16; i++) rdi(s8,i) = rsi(s8,i) == rti(s8,i) ? 0xff : 0; dis_rd_rs_rt("pceqb"); break;
+				case 11: /*illegal*/ illegal(); break;
+				case 12: /*illegal*/ illegal(); break;
+				case 13: /*illegal*/ illegal(); break;
+				case 14: /*illegal*/ illegal(); break;
+				case 15: /*illegal*/ illegal(); break;
+				case 16: /*padduw*/ for(int i = 0; i< 4; i++)rdi(u32,i) = satadd(rsi(u32,i),rti(u32,i)); dis_rd_rs_rt("padduw"); break;
+				case 17: /*psubuw*/ for(int i = 0; i< 4; i++)rdi(u32,i) = satsub(rsi(u32,i),rti(u32,i)); dis_rd_rs_rt("psubuw"); break;
+				case 18: /*pextuw*/ rdi(s32,0) = rti(s32,2); rdi(s32,1) = rsi(s32,2); rdi(s32,2) = rti(s32,3); rdi(s32,3) = rsi(s32,3); dis_rd_rs_rt("pextuw");  break;
+				case 19: /*illegal*/ illegal(); break;
+				case 20: /*padduh*/ for(int i = 0; i< 8; i++)rdi(u16,i) = satadd(rsi(u16,i),rti(u16,i)); dis_rd_rs_rt("padduh"); break;
+				case 21: /*psubuh*/ for(int i = 0; i< 8; i++)rdi(u16,i) = satsub(rsi(u16,i),rti(u16,i)); dis_rd_rs_rt("psubuh"); break;
+				case 22: /*pextuh*/ for(int i = 0; i < 8; i+=2){rdi(s16,i) = rti(s16,i/2+4); rdi(s16,i+1) = rsi(s16,i/2+4);} dis_rd_rs_rt("pextuh"); break;
+				case 23: /*illegal*/ illegal(); break;
+				case 24: /*paddub*/ for(int i = 0; i< 16; i++)rdi(u8,i) = satadd(rsi(u8,i),rti(u8,i)); dis_rd_rs_rt("paddub"); break;
+				case 25: /*psubub*/ for(int i = 0; i< 16; i++)rdi(u8,i) = satsub(rsi(u8,i),rti(u8,i)); dis_rd_rs_rt("psubub"); break;
+				case 26: /*pextub*/ for(int i = 0; i < 16; i+=2){rdi(s8,i) = rti(s8,i/2+8); rdi(s16,i+1) = rsi(s8,i/2+8);} dis_rd_rs_rt("pextub"); break;
+				case 27: /*qfsrv*/ dis_("qfsrv"); break;
+				case 28: /*illegal*/ illegal(); break;
+				case 29: /*illegal*/ illegal(); break;
+				case 30: /*illegal*/ illegal(); break;
+				case 31: /*illegal*/ illegal(); break;
+				default: illegal(); break;
 			} break;
 			case 41: switch(sa) {
 				/*mmi3*/
-				case 0: /*pmadduw*/ break;
-				case 1: /*illegal*/ break;
-				case 2: /*illegal*/ break;
-				case 3: /*psravw*/ break;
-				case 4: /*illegal*/ break;
-				case 5: /*illegal*/ break;
-				case 6: /*illegal*/ break;
-				case 7: /*illegal*/ break;
-				case 8: /*pmthi*/ hi128s = rs128s; break;
-				case 9: /*pmtlo*/ lo128s = rs128s; break;
-				case 10: /*pinteh*/ for(int i = 0; i < 8; i+=2){rdi(s16,i) = rti(s16,i); rdi(s16,i+1) = rsi(s16,i);}break;
-				case 11: /*illegal*/ break;
-				case 12: /*pmultuw*/ rdi(u64,0) = (u64)rsi(u32,0) * (u64)rdi(u32,0); loi(s64,0) = rdi(s32,0); hii(s64,0) = rdi(s32,1); rdi(u64,1) = (u64)rsi(s32,2) * (u64)rdi(s32,2); loi(s64,1) = rdi(s32,2); hii(s64,1) = rdi(s32,3);break;
-				case 13: /*pdivuw*/ loi(s64,0) = (s32)(rsi(u32,0)/rti(u32,0)); hii(s64,0) = (s32)(rsi(u32,0)%rti(u32,0)); loi(s64,1) = (s32)(rsi(u32,2)/rti(u32,2)); hii(s64,1) = (s32)(rsi(u32,2)%rti(u32,2));break;
-				case 14: /*pcpyud*/ rdi(s64,0) = rsi(s64,1); rdi(s64,1) = rti(s64,1); break;
-				case 15: /*illegal*/ break;
-				case 16: /*illegal*/ break;
-				case 17: /*illegal*/ break;
-				case 18: /*por*/ rd128s = rs128s | rt128s; break;
-				case 19: /*pnor*/ rd128s = ~(rs128s | rt128s); break;
-				case 20: /*illegal*/ break;
-				case 21: /*illegal*/ break;
-				case 22: /*illegal*/ break;
-				case 23: /*illegal*/ break;
-				case 24: /*illegal*/ break;
-				case 25: /*illegal*/ break;
-				case 26: /*pexch*/ rdi(s16,0) = rti(s16,0); rdi(s16,1) = rti(s16,2); rdi(s16,2) = rti(s16,1); rdi(s16,3) = rti(s16,3); rdi(s16,4) = rti(s16,4); rdi(s16,5) = rti(s16,6); rdi(s16,6) = rti(s16,5); rdi(s16,7) = rti(s16,7);   break;
-				case 27: /*pcpyh*/ for(int i = 0; i < 4; i++){rdi(s16,i) = rti(s16,0); rdi(s16,i+4) = rti(s16,4); }break;
-				case 28: /*illegal*/ break;
-				case 29: /*illegal*/ break;
-				case 30: /*pexcw*/ rdi(s32,0) = rti(s32,0); rdi(s32,1) = rti(s32,2); rdi(s32,2) = rti(s32,1); rdi(s32,3) = rti(s32,3); break;
-				case 31: /*illegal*/ break;
+				case 0: /*pmadduw*/ dis_rd_rs_rt("pmadduw"); break;
+				case 1: /*illegal*/ illegal(); break;
+				case 2: /*illegal*/ illegal(); break;
+				case 3: /*psravw*/ dis_rd_rs_rt("psravw"); break;
+				case 4: /*illegal*/ illegal(); break;
+				case 5: /*illegal*/ illegal(); break;
+				case 6: /*illegal*/ illegal(); break;
+				case 7: /*illegal*/ illegal(); break;
+				case 8: /*pmthi*/ hi128s = rs128s; dis_rs("pmthi"); break;
+				case 9: /*pmtlo*/ lo128s = rs128s; dis_rs("pmtlo"); break;
+				case 10: /*pinteh*/ for(int i = 0; i < 8; i+=2){rdi(s16,i) = rti(s16,i); rdi(s16,i+1) = rsi(s16,i);} dis_rd_rs_rt("pinteh"); break;
+				case 11: /*illegal*/ illegal(); break;
+				case 12: /*pmultuw*/ rdi(u64,0) = (u64)rsi(u32,0) * (u64)rdi(u32,0); loi(s64,0) = rdi(s32,0); hii(s64,0) = rdi(s32,1); rdi(u64,1) = (u64)rsi(s32,2) * (u64)rdi(s32,2); loi(s64,1) = rdi(s32,2); hii(s64,1) = rdi(s32,3); dis_rd_rs_rt("pmultuw"); break;
+				case 13: /*pdivuw*/ loi(s64,0) = (s32)(rsi(u32,0)/rti(u32,0)); hii(s64,0) = (s32)(rsi(u32,0)%rti(u32,0)); loi(s64,1) = (s32)(rsi(u32,2)/rti(u32,2)); hii(s64,1) = (s32)(rsi(u32,2)%rti(u32,2)); dis_rd_rs_rt("pdivuw"); break;
+				case 14: /*pcpyud*/ rdi(s64,0) = rsi(s64,1); rdi(s64,1) = rti(s64,1); dis_rd_rs_rt("pcpyud"); break;
+				case 15: /*illegal*/ illegal(); break;
+				case 16: /*illegal*/ illegal(); break;
+				case 17: /*illegal*/ illegal(); break;
+				case 18: /*por*/ rd128s = rs128s | rt128s; dis_rd_rs_rt("por"); break;
+				case 19: /*pnor*/ rd128s = ~(rs128s | rt128s); dis_rd_rs_rt("pnor"); break;
+				case 20: /*illegal*/ illegal(); break;
+				case 21: /*illegal*/ illegal(); break;
+				case 22: /*illegal*/ illegal(); break;
+				case 23: /*illegal*/ illegal(); break;
+				case 24: /*illegal*/ illegal(); break;
+				case 25: /*illegal*/ illegal(); break;
+				case 26: /*pexch*/ rdi(s16,0) = rti(s16,0); rdi(s16,1) = rti(s16,2); rdi(s16,2) = rti(s16,1); rdi(s16,3) = rti(s16,3); rdi(s16,4) = rti(s16,4); rdi(s16,5) = rti(s16,6); rdi(s16,6) = rti(s16,5); rdi(s16,7) = rti(s16,7); dis_rd_rs_rt("pexch");   break;
+				case 27: /*pcpyh*/ for(int i = 0; i < 4; i++){rdi(s16,i) = rti(s16,0); rdi(s16,i+4) = rti(s16,4); } dis_rd_rs_rt("pcpyh"); break;
+				case 28: /*illegal*/ illegal(); break;
+				case 29: /*illegal*/ illegal(); break;
+				case 30: /*pexcw*/ rdi(s32,0) = rti(s32,0); rdi(s32,1) = rti(s32,2); rdi(s32,2) = rti(s32,1); rdi(s32,3) = rti(s32,3); dis_rd_rs_rt("pexcw"); break;
+				case 31: /*illegal*/ illegal(); break;
+				default: illegal(); break;
 			} break;
-			case 48: /*pmfhl*/ break;
-			case 49: /*pmthl*/ break;
-			case 52: /*psllh*/ for(int i = 0; i < 8; i++) rdi(u16,i) = rti(u16,i) << (sa&0xf);break;
-			case 54: /*psrlh*/ for(int i = 0; i < 8; i++) rdi(u16,i) = rti(u16,i) >> (sa&0xf);break;
-			case 55: /*psrah*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rti(s16,i) >> (sa&0xf);break;
-			case 60: /*psllw*/ for(int i = 0; i < 4; i++) rdi(u32,i) = rti(u32,i) << sa; break;
-			case 62: /*psrlw*/ for(int i = 0; i < 4; i++) rdi(u32,i) = rti(u32,i) >> sa; break;
-			case 63: /*psraw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rti(s32,i) >> sa; break;
-			default: /*illegal*/ break;
+			case 48: /*pmfhl*/ dis_rd_rs_rt("pmfhl"); break;
+			case 49: /*pmthl*/ dis_rd_rs_rt("pmthl"); break;
+			case 52: /*psllh*/ for(int i = 0; i < 8; i++) rdi(u16,i) = rti(u16,i) << (sa&0xf);dis_rd_rt_sa("psllh"); break;
+			case 54: /*psrlh*/ for(int i = 0; i < 8; i++) rdi(u16,i) = rti(u16,i) >> (sa&0xf);dis_rd_rt_sa("psrlh");break;
+			case 55: /*psrah*/ for(int i = 0; i < 8; i++) rdi(s16,i) = rti(s16,i) >> (sa&0xf);dis_rd_rt_sa("psrah");break;
+			case 60: /*psllw*/ for(int i = 0; i < 4; i++) rdi(u32,i) = rti(u32,i) << sa; dis_rd_rt_sa("psllw");break;
+			case 62: /*psrlw*/ for(int i = 0; i < 4; i++) rdi(u32,i) = rti(u32,i) >> sa; dis_rd_rt_sa("psrlw");break;
+			case 63: /*psraw*/ for(int i = 0; i < 4; i++) rdi(s32,i) = rti(s32,i) >> sa; dis_rd_rt_sa("psraw");break;
+			default: /*illegal*/ illegal(); break;
 		} break;
-		case 29: /*illegal*/ break;
-		case 30: /*lq*/ rt128s = memread128((base32s + simm16)&~0xf); dis_rt_offset_base("lq"); break;
-		case 31: /*sq*/ memwrite128((base32s + simm16)&~0xf, rt128s); dis_rt_offset_base("sq"); break;
-		case 32: /*lb*/ rt64s = (s8)memread8(base32s + simm16); dis_rt_offset_base("lb"); break;
-		case 33: /*lh*/ rt64s = (s16)memread16(base32s + simm16); dis_rt_offset_base("lh"); break;
+		case 29: /*illegal*/ illegal(); break;
+		case 30: /*lq*/ rt128s = memread128(ps2, (base32s + simm16)&~0xf); dis_rt_offset_base("lq"); break;
+		case 31: /*sq*/ memwrite128(ps2, (base32s + simm16)&~0xf, rt128s); dis_rt_offset_base("sq"); break;
+		case 32: /*lb*/ rt64s = (s8)memread8(ps2, base32s + simm16); dis_rt_offset_base("lb"); break;
+		case 33: /*lh*/ rt64s = (s16)memread16(ps2, base32s + simm16); dis_rt_offset_base("lh"); break;
 		case 34: /*lwl*/ dis_rt_offset_base("lwl"); break;
-		case 35: /*lw*/ rt64s = (s32)memread16(base32s + simm16); dis_rt_offset_base("lw"); break;
-		case 36: /*lbu*/ rt64u = memread8(base32s + simm16); dis_rt_offset_base("lbu"); break;
-		case 37: /*lhu*/ rt64u = memread16(base32s + simm16); dis_rt_offset_base("lhu"); break;
+		case 35: /*lw*/ rt64s = (s32)memread16(ps2, base32s + simm16); dis_rt_offset_base("lw"); break;
+		case 36: /*lbu*/ rt64u = memread8(ps2, base32s + simm16); dis_rt_offset_base("lbu"); break;
+		case 37: /*lhu*/ rt64u = memread16(ps2, base32s + simm16); dis_rt_offset_base("lhu"); break;
 		case 38: /*lwr*/ dis_rt_offset_base("lwr"); break;
-		case 39: /*lwu*/ rt64u = memread32(base32s + simm16); dis_rt_offset_base("lwu"); break;
-		case 40: /*sb*/ 	memwrite8(base32s + simm16, rt32s); dis_rt_offset_base("sb"); break;
-		case 41: /*sh*/ 	memwrite16(base32s + simm16, rt32u); dis_rt_offset_base("sh"); break;
+		case 39: /*lwu*/ rt64u = memread32(ps2, base32s + simm16); dis_rt_offset_base("lwu"); break;
+		case 40: /*sb*/ 	memwrite8(ps2, base32s + simm16, rt32s); dis_rt_offset_base("sb"); break;
+		case 41: /*sh*/ 	memwrite16(ps2, base32s + simm16, rt32u); dis_rt_offset_base("sh"); break;
 		case 42: /*swl*/ dis_rt_offset_base("swl"); break;
-		case 43: /*sw*/ 	memwrite32(base32s + simm16,  rt32u); dis_rt_offset_base("sw"); break;
+		case 43: /*sw*/ 	memwrite32(ps2, base32s + simm16,  rt32u); dis_rt_offset_base("sw"); break;
 		case 44: /*sdl*/ dis_rt_offset_base("sdl"); break;
 		case 45: /*sdr*/ dis_rt_offset_base("sdr"); break;
 		case 46: /*swr*/ dis_rt_offset_base("sdr"); break;
 		case 47: /*cache*/ dis_("cache"); break;
-		case 48: /*illegal*/ break;
+		case 48: /*illegal*/ illegal(); break;
 		case 49: /*lwc1*/ dis_("lwc1"); break;
-		case 50: /*illegal*/ break;
+		case 50: /*illegal*/ illegal(); break;
 		case 51: /*pref*/ dis_("pref"); break;
-		case 52: /*illegal*/ break;
-		case 53: /*illegal*/ break;
+		case 52: /*illegal*/ illegal(); break;
+		case 53: /*illegal*/ illegal(); break;
 		case 54: /*lqc2*/ dis_("lqc2"); break;
-		case 55: /*ld*/ rt64u = memread64(base32s + simm16); dis_rt_offset_base("ld"); break;
-		case 56: /*illegal*/ break;
+		case 55: /*ld*/ rt64u = memread64(ps2, base32s + simm16); dis_rt_offset_base("ld"); break;
+		case 56: /*illegal*/ illegal(); break;
 		case 57: /*swc1*/ dis_("swc1"); break;
-		case 58: /*illegal*/ break;
-		case 59: /*illegal*/ break;
-		case 60: /*illegal*/ break;
-		case 61: /*illegal*/ break;
+		case 58: /*illegal*/ illegal(); break;
+		case 59: /*illegal*/ illegal(); break;
+		case 60: /*illegal*/ illegal(); break;
+		case 61: /*illegal*/ illegal(); break;
 		case 62: /*sqc2*/ dis_("sqc2"); break;
-		case 63: /*sd*/ memwrite64(base32s + simm16,  rt64u); dis_rt_offset_base("sd"); break;
+		case 63: /*sd*/ memwrite64(ps2, base32s + simm16,  rt64u); dis_rt_offset_base("sd"); break;
+		default: illegal(); break;
 	}
 }
 
@@ -1724,4 +1736,128 @@ void vudecode(struct ps2* ps2, u32 upperopcode, u32 loweropcode, bool interpret,
 			}break;
 		}
 	}
+}
+
+
+void init(struct ps2* ps2) {
+	ps2->ee.ram = aligned_alloc(4096, EE_RAM_SIZE);
+	ps2->ee.scratch = aligned_alloc(4096, EE_SCRATCHPAD_SIZE);
+	ps2->ee.bios = aligned_alloc(4096, BIOS_SIZE);
+	ps2->ee.regs = aligned_alloc(4096, EE_REGS_SIZE);
+
+	ps2->vu0.code = NULL;
+	ps2->vu0.data = NULL;
+	ps2->vu1.code = NULL;
+	ps2->vu1.data = NULL;
+
+	ps2->iop.ram = aligned_alloc(4096, IOP_IOP_RAM_SIZE);
+	ps2->iop.scratch = aligned_alloc(4096, 4096); //TODO: how big is this?
+	ps2->iop.bios = ps2->ee.bios;
+	ps2->iop.regs = aligned_alloc(4096, IOP_REGS_SIZE);
+	ps2->gs.regs = aligned_alloc(4096, GS_REGS_SIZE);
+
+	//values from pcsx2
+	ps2->ee.pc._u32[0] = 0xbfc00000;
+	ps2->ee.cop0.config._u32[0] = 0x440;
+	ps2->ee.cop0.status._u32[0] = 0x70400004; // COP0 enabled | BEV = 1 | TS = 1
+	ps2->ee.cop0.prid._u32[0] = 0x00002e20; // PRevID = Revision ID, same as R5900
+	ps2->ee.cop1.fcr[0]._u32[0] = 0x00002e00; // fpu Revision..
+	ps2->ee.cop1.fcr[31]._u32[0] = 0x01000001; // fpu Status/Control
+}
+
+void fini(struct ps2* ps2) {
+	free(ps2->gs.regs);
+	free(ps2->iop.regs);
+	//no free for ps2.iop.bios because it is also ps2.ee.bios
+	free(ps2->iop.scratch);
+	free(ps2->iop.ram);
+	free(ps2->ee.regs);
+	free(ps2->ee.bios);
+	free(ps2->ee.scratch);
+	free(ps2->ee.ram);
+}
+
+void loadbios(struct ps2* ps2, char *path) {
+	FILE *fp;
+	char *abspath = realpath(path, NULL);
+	fp = fopen(abspath, "r");
+	dieif(fp == nullptr, "could not open %s", abspath);
+	fseek(fp, 0L, SEEK_END);
+	size_t size = (size_t) ftell(fp);
+	fseek(fp, 0L, SEEK_SET);
+	assert(size == 1024 * 1024 * 4);
+	fread(ps2->ee.bios, size, 1, fp);
+	ps2->ee.pc._u32[0] = 0xbfc00000;
+	free(abspath);
+	fclose(fp);
+}
+
+
+
+void loadelf(struct ps2* ps2, char *path) {
+	FILE *fp;
+	char *abspath = realpath(path, NULL);
+	fp = fopen(abspath, "r");
+	dieif(fp == NULL, "could not open %s", abspath);
+	fseek(fp, 0L, SEEK_END);
+	size_t size = (size_t) ftell(fp);
+	fseek(fp, 0L, SEEK_SET);
+	u8 *buffer = malloc(size);
+
+	fread(buffer, size, 1, fp);
+
+	Elf32_Ehdr *elf_header = (Elf32_Ehdr *) buffer;
+	Elf32_Phdr *phdr = (Elf32_Phdr *) ((uint8_t *) buffer + elf_header->e_phoff);
+	printf("entry %x\n", elf_header->e_entry);
+	printf("num pheaders %x\n", elf_header->e_phnum);
+	printf("phoff %x\n", elf_header->e_phoff);
+	printf("prog offset %x\n", phdr->p_offset);
+	printf("paddr %x\n", phdr->p_paddr);
+	printf("vaddr %x\n", phdr->p_vaddr);
+	printf("filesz %x\n", phdr->p_filesz);
+	printf("memsz %x\n", phdr->p_memsz);
+
+	memset((u8 *) ps2->ee.ram + phdr->p_vaddr, 0, phdr->p_memsz);
+	memcpy((u8 *) ps2->ee.ram + phdr->p_vaddr, (uint8_t *) buffer + phdr->p_offset, phdr->p_filesz);
+
+	ps2->ee.pc._u32[0] = elf_header->e_entry;
+	free(buffer);
+	free(abspath);
+	fclose(fp);
+}
+
+
+void step(struct ps2* ps2, int instrs){
+	for(int i = instrs; i > 0; i--) {
+		reg32 op, pc;
+		bool delay;
+		u32 instr = memread32(ps2, ps2->ee.pc._u32[0]);
+		char dis[1024];
+
+		printf("%08x %s\n", ps2->ee.pc._u32[0], dis);
+
+
+		delay = ps2->ee._in_branch_delay;
+		interpret(ps2, instr, true, true);
+		if(delay){
+			//we just executed the delay slot so set new pc
+			ps2->ee.pc = ps2->ee._pc_latch;
+			ps2->ee._in_branch_delay = false;
+		} else {
+			ps2->ee.pc._u32[0]+=4;
+		}
+	}
+}
+
+
+int main(int argc, char **argv) {
+	struct ps2 ps2;
+	init(&ps2);
+	//loadbios("../bios/ps2.bin");
+	loadelf(&ps2, "../thirdparty/ps2autotests/tests/cpu/ee/alu.elf");
+	//loadelf("../elfs/ee/helloworld");
+	char dis[1024];
+
+	step(&ps2, 50000);
+	fini(&ps2);
 }
