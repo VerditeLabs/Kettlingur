@@ -5,7 +5,6 @@
 static void branch(u32 addr){
 	ps2.ee._in_branch_delay = true;
 	ps2.ee._pc_latch._u32[0] = addr;
-
 }
 
 static void *readwrite(u32 addr) {
@@ -229,7 +228,7 @@ static void SYSCALL(reg32 opcode) {
 		case 0x44:  printf(" void WaitSema(int sema_id)\n"); break;
 		case 0x45:  printf(" int PollSema(int sema_id)\n"); break;
 		case -0x46:  printf(" int iPollSema(int sema_id)\n"); break;
-				case 0x47: printf("ReferSemaStatus\n"); break;
+		case 0x47: printf("ReferSemaStatus\n"); break;
 		case -0x48: printf("iReferSemaStatus\n"); break;
 		case -0x49: printf("iDeleteSema\n"); break;
 		case 0x4a: printf("SetOsdConfigParam\n"); break;
@@ -242,6 +241,18 @@ static void SYSCALL(reg32 opcode) {
 		case 0x51: printf("DeleteEventFlag\n"); break;
 		case 0x52: printf("SetEventFlag\n"); break;
 		case 0x53: printf("iSetEventFlag\n"); break;
+		case 0x54: printf("xlaunch\n"); break;
+		case 0x55: printf("PutTLBEntry\n"); break;
+		case -0x55: printf("iPutTLBEntry\n"); break;
+		case 0x56: printf("SetTLBEntry\n"); break;
+		case -0x56: printf("iSetTLBEntry\n"); break;
+		case 0x57: printf("GetTLBEntry\n"); break;
+		case -0x57: printf("iGetTLBEntry\n"); break;
+		case 0x58: printf("ProbeTLBEntry\n"); break;
+		case -0x58: printf("iProbeTLBEntry\n"); break;
+		case 0x59: printf("ExpandScratchpad\n"); break;
+		case 0x5a: printf("copy\n"); break;
+		case 0x5b: printf("getentryaddr\n"); break;
 		case 0x5c: printf("EnableIntcHandler\n"); break;
 		case -0x5c: printf("iEnableIntcHandler\n"); break;
 		case 0x5d: printf("DisableIntcHandler\n"); break;
@@ -285,6 +296,13 @@ static void SYSCALL(reg32 opcode) {
 		case 0x7d: printf("PSMode\n"); break;
 		case 0x7e: printf("MachineType\n"); break;
 		case 0x7f: printf("GetMemorySize\n"); break;
+		case 0x80: printf("GetGsDxDyOffset\n"); break;
+		case 0x82: printf("InitTLB\n"); break;
+		case 0x83: printf("FindAddress\n"); break;
+		case 0x85: printf("SetMemoryMode\n"); break;
+		case 0x87: printf("ExecPSX\n"); break;
+		case 0xfc: printf("setalarm\n"); break;
+		case 0xfe: printf("releasealarm\n"); break;
 		default:
 			{printf("unknown syscall number %d\n", ps2.ee.gpr.v1._u32[0]); assert(false);}
 	}
